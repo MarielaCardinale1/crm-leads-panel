@@ -1,0 +1,4 @@
+{
+  "projects": { "default": "tu-proyecto" },
+  "targets": { "tu-proyecto": { "hosting": { "leads": ["tu-sitio-leads"] } } }
+}

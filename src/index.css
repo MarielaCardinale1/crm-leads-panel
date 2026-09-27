@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+:root {
+  --color-primary: #E8610A;
+  --color-primary-hover: #C4500A;
+  --color-bg-main: #FFF8F0;
+  --color-bg-card: #FFF3EB;
+  --color-border-soft: #F5C9A8;
+  --color-title: #1a1a1a;
+  --color-text: #555;
+  --color-subtext: #666;
+  --color-border: #E0E0E0;
+  --color-bg-light: #F5F5F5;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.dark {
+  --color-primary: #E8610A;
+  --color-primary-hover: #FA792B;
+  --color-bg-main: #141210;
+  --color-bg-card: #1C1814;
+  --color-border-soft: #3D2E22;
+  --color-title: #F5EBE1;
+  --color-text: #C8B9A9;
+  --color-subtext: #99897A;
+  --color-border: #2E2721;
+  --color-bg-light: #231E19;
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-bg-main);
+  color: var(--color-text);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+h1, h2, h3, h4, h5, h6, .font-heading, button, nav {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.font-serif-body {
+  font-family: 'Georgia', serif;
+}
+
+.font-ui {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Custom scrollbar for clean dashboard look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-soft);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
