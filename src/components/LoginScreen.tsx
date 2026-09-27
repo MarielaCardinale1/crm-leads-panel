@@ -216,11 +216,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <div className="pt-2 border-t border-[#F5C9A8]/40 dark:border-[#2E2721] space-y-2 text-xs text-[#666] dark:text-[#99897A] font-ui">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#E8610A] dark:text-[#FFA86B] shrink-0" />
-                  <span>Modo <strong>SOLO LECTURA</strong>: no modifica ni borra nada</span>
+                  <span>Cada prioridad explica <strong>por qué</strong></span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#E8610A] dark:text-[#FFA86B] shrink-0" />
-                  <span>Sincronización en tiempo real vía Firestore</span>
+                  <span>Datos protegidos: solo tu cuenta autorizada</span>
                 </div>
               </div>
             </div>
