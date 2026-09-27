@@ -140,6 +140,8 @@ function buildDailyOpportunities(leads, today, activeOffers = DEFAULT_ACTIVE_OFF
       id: lead?.id || "",
       nombre: lead?.nombre || "",
       negocio: lead?.negocio || "",
+      proximaAccion: lead?.proximaAccion || "",
+      fechaProximaAccion: toDateKey(lead?.fechaProximaAccion) || "",
       ...scoreLead(lead, today, activeOffers),
     }))
     .filter((o) => !o.cerrado)

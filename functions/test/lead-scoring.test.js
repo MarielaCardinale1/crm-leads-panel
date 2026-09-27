@@ -69,3 +69,9 @@ test("Plazo vencido suma y se explica", () => {
   const r = scoreLead({ nombre: "X", oferta: "Otra", estado: "conversando", fechaProximaAccion: "2026-09-25", proximaAccion: "Llamar", ultimaInteraccion: "2026-09-20" }, HOY);
   assert.ok(r.motivos.includes("próxima acción vencida (hace 2 días)"));
 });
+
+test("Oportunidades incluyen la próxima acción para el coordinador", () => {
+  const r = buildDailyOpportunities([{ id: "x", nombre: "X", oferta: "Agenda Online", estado: "esperando_mi_respuesta", pidioPrecio: true, ultimaInteraccion: HOY, proximaAccion: "Mandar precio", fechaProximaAccion: "2026-09-28" }], HOY);
+  assert.equal(r.opportunities[0].proximaAccion, "Mandar precio");
+  assert.equal(r.opportunities[0].fechaProximaAccion, "2026-09-28");
+});
