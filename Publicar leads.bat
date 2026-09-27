@@ -19,9 +19,6 @@ call npm test || goto :error
 echo Compilando el panel...
 call npm run build || goto :error
 echo.
-echo Creando el sitio de hosting (si ya existe, sigue igual)...
-call npx --yes firebase-tools hosting:sites:create marielacardinale-leads
-echo.
 echo Publicando panel y funciones (codebase leads)...
 call npx --yes firebase-tools deploy --only hosting:leads,functions:leads || goto :error
 echo.
