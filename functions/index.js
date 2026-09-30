@@ -4,11 +4,13 @@
  *
  * - leadsApi    → alta / edición / borrado / listado de leads (CRM Leads)
  * - leadScoring → microagente Lead Scoring: "Oportunidades de hoy" (solo lectura)
+ * - seguimientos → microagente Seguimientos: qué mirar hoy, sin repetir avisos
  */
 const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const { AGENT, ESTADOS, parseActiveOffers, scoreLead, buildDailyOpportunities, toDateKey } = require("./lead-scoring-rules");
+const followups = require("./followup-rules");
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -134,4 +136,25 @@ exports.leadScoring = wrap(AGENT, async (req, res, user) => {
   const result = buildDailyOpportunities(leads, todayKey(), ACTIVE_OFFERS);
   logger.info(`[${AGENT}] ok`, { leads: leads.length, relevantes: result.relevantes });
   res.json(result);
+});
+
+// Microagente Seguimientos: lee tareas WAITING del tablero + leads en espera.
+// GET = vista previa (no marca nada). POST = avisa y guarda qué se avisó (lo usa Jefe IA),
+// así el mismo seguimiento no se repite si nada cambió.
+exports.seguimientos = wrap(followups.AGENT, async (req, res, user) => {
+  if (!["GET", "POST"].includes(req.method)) return res.status(405).json({ agent: followups.AGENT, error: "Método no permitido." });
+  const [boardSnap, leads, memSnap] = await Promise.all([
+    db.collection("crmDashboardState").doc(user.uid).get(),
+    readLeads(user.uid),
+    db.collection("crmFollowupState").doc(user.uid).get(),
+  ]);
+  const items = boardSnap.exists && Array.isArray(boardSnap.data().items) ? boardSnap.data().items : [];
+  const memory = memSnap.exists ? memSnap.data().memory || {} : {};
+  const result = followups.decideFollowups({ items, leads }, memory, todayKey());
+  if (req.method === "POST") {
+    await db.collection("crmFollowupState").doc(user.uid).set({ memory: result.memory, updatedAt: Date.now() });
+  }
+  logger.info(`[${followups.AGENT}] ok`, { total: result.total, avisar: result.avisar.length, marcado: req.method === "POST" });
+  const { memory: _omit, ...publico } = result;
+  res.json(publico);
 });

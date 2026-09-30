@@ -40,7 +40,8 @@ Panel (React + Vite + Tailwind)
    ▼
 Cloud Functions (codebase "leads")
    ├─ leadsApi     → CRUD en Firestore: crmLeads/{uid}/leads
-   └─ leadScoring  → "Oportunidades de hoy" (solo lectura)
+   ├─ leadScoring  → "Oportunidades de hoy" (solo lectura)
+   └─ seguimientos → qué seguimientos mirar hoy, sin repetir avisos
           ▲
           └── Jefe IA (coordinador) lo consulta
 ```
@@ -48,6 +49,10 @@ Cloud Functions (codebase "leads")
 - El panel no toca Firestore directo: todo pasa por funciones que validan el login y el email.
 - Codebase de Functions separado: se despliega sin tocar otras funciones del proyecto.
 - Observabilidad: cada error devuelve y loguea el nombre del agente que falló.
+
+## Microagente Seguimientos (`functions/followup-rules.js`)
+
+Junta tareas en espera del tablero y leads en espera. Vuelve a avisar un seguimiento **solo** si es nuevo, cambió, vence hoy/venció o pasaron 3 días sin novedades. Si nada cambió, se calla: "Tenés 12 pendientes, ninguno cambió".
 
 ## Configuración
 
