@@ -35,15 +35,15 @@ function cors(req, res) {
   res.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
 }
 
-async function verifyUser(req, res) {
+async function verifyUser(req, res, name) {
   const match = (req.get("Authorization") || "").match(/^Bearer (.+)$/);
   if (!match) {
-    res.status(401).json({ agent: AGENT, error: "Falta iniciar sesión." });
+    res.status(401).json({ agent: name, error: "Falta iniciar sesión." });
     return null;
   }
   const decoded = await admin.auth().verifyIdToken(match[1]);
   if (!ALLOWED_EMAILS.has((decoded.email || "").toLowerCase())) {
-    res.status(403).json({ agent: AGENT, error: "Cuenta no autorizada." });
+    res.status(403).json({ agent: name, error: "Cuenta no autorizada." });
     return null;
   }
   return decoded;
@@ -81,7 +81,7 @@ function wrap(name, handler) {
     cors(req, res);
     if (req.method === "OPTIONS") return res.status(204).send("");
     try {
-      const user = await verifyUser(req, res);
+      const user = await verifyUser(req, res, name);
       if (!user) return;
       await handler(req, res, user);
     } catch (error) {
