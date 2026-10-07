@@ -38,3 +38,18 @@ export async function deleteLead(id: string): Promise<{ ok: boolean }> {
 export async function fetchDailyOpportunities(): Promise<DailyOpportunities> {
   return call('leadScoring', { method: 'GET' });
 }
+
+export interface CopyResult {
+  ok: boolean;
+  canal?: 'email' | 'whatsapp';
+  asunto?: string;
+  mensaje?: string;
+  whatsappLink?: string;
+  motivo?: string;
+  faltantes?: string[];
+}
+
+/** Microagente Copy Comercial: borrador para un lead guardado. No envía nada. */
+export async function draftMessage(leadId: string, canal: 'email' | 'whatsapp'): Promise<CopyResult> {
+  return call('copyComercial', { method: 'POST', body: JSON.stringify({ leadId, canal }) });
+}

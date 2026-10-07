@@ -41,7 +41,8 @@ Panel (React + Vite + Tailwind)
 Cloud Functions (codebase "leads")
    ├─ leadsApi     → CRUD en Firestore: crmLeads/{uid}/leads
    ├─ leadScoring  → "Oportunidades de hoy" (solo lectura)
-   └─ seguimientos → qué seguimientos mirar hoy, sin repetir avisos
+   ├─ seguimientos → qué seguimientos mirar hoy, sin repetir avisos
+   └─ copyComercial → borrador de email/WhatsApp para un lead (no envía nada)
           ▲
           └── Jefe IA (coordinador) lo consulta
 ```
@@ -53,6 +54,10 @@ Cloud Functions (codebase "leads")
 ## Microagente Seguimientos (`functions/followup-rules.js`)
 
 Junta tareas en espera del tablero y leads en espera. Vuelve a avisar un seguimiento **solo** si es nuevo, cambió, vence hoy/venció o pasaron 3 días sin novedades. Si nada cambió, se calla: "Tenés 12 pendientes, ninguno cambió".
+
+## Microagente Copy Comercial (`functions/copy-rules.js`)
+
+Botón "Redactar mensaje" en cada lead guardado. Las reglas fijas deciden si hay datos suficientes y qué objetivo tiene el mensaje según el estado; el modelo solo redacta, con los hechos reales de la oferta (no puede inventar precios ni detalles). Devuelve un borrador para copiar o abrir en WhatsApp: **nunca envía nada**.
 
 ## Configuración
 

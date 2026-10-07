@@ -5,12 +5,18 @@
  * - leadsApi    → alta / edición / borrado / listado de leads (CRM Leads)
  * - leadScoring → microagente Lead Scoring: "Oportunidades de hoy" (solo lectura)
  * - seguimientos → microagente Seguimientos: qué mirar hoy, sin repetir avisos
+ * - copyComercial → microagente Copy Comercial: borrador de mail/WhatsApp para un lead (no envía nada)
  */
 const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const { AGENT, ESTADOS, parseActiveOffers, scoreLead, buildDailyOpportunities, toDateKey } = require("./lead-scoring-rules");
 const followups = require("./followup-rules");
+const copy = require("./copy-rules");
+const { defineSecret } = require("firebase-functions/params");
+
+// Misma clave que usa Jefe IA (secreto del proyecto). Solo la usa copyComercial.
+const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -76,8 +82,8 @@ async function readLeads(uid) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-function wrap(name, handler) {
-  return onRequest({ region: "us-central1", timeoutSeconds: 30 }, async (req, res) => {
+function wrap(name, handler, options = {}) {
+  return onRequest({ region: "us-central1", timeoutSeconds: 30, ...options }, async (req, res) => {
     cors(req, res);
     if (req.method === "OPTIONS") return res.status(204).send("");
     try {
@@ -158,3 +164,55 @@ exports.seguimientos = wrap(followups.AGENT, async (req, res, user) => {
   const { memory: _omit, ...publico } = result;
   res.json(publico);
 });
+
+// Microagente Copy Comercial: redacta UN borrador para UN lead. No envía, no guarda, no cambia el lead.
+exports.copyComercial = wrap(copy.AGENT, async (req, res, user) => {
+  if (req.method !== "POST") return res.status(405).json({ agent: copy.AGENT, error: "Método no permitido." });
+  const leadId = String(req.body?.leadId || "").slice(0, 60);
+  const canal = String(req.body?.canal || "");
+  if (!leadId) return res.status(400).json({ agent: copy.AGENT, error: "Falta leadId." });
+
+  const snap = await leadsRef(user.uid).doc(leadId).get();
+  if (!snap.exists) return res.status(404).json({ agent: copy.AGENT, error: "No encontré ese lead." });
+  const lead = snap.data();
+
+  const check = copy.checkLead(lead, canal);
+  if (!check.ok) return res.json({ agent: copy.AGENT, ok: false, motivo: check.motivo, faltantes: check.faltantes });
+
+  const { system, user: userMsg } = copy.buildPrompt(lead, canal);
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENAI_API_KEY.value()}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      max_output_tokens: 500,
+      input: [
+        { role: "system", content: system },
+        { role: "user", content: userMsg },
+      ],
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const code = data?.error?.code || data?.error?.type;
+    logger.error(`[${copy.AGENT}] OpenAI`, { code });
+    const sinSaldo = code === "credit_balance_exhausted" || code === "insufficient_quota";
+    return res.status(sinSaldo ? 402 : 502).json({
+      agent: copy.AGENT,
+      error: sinSaldo ? "La cuenta de OpenAI no tiene saldo." : "OpenAI no respondió. Probá de nuevo.",
+    });
+  }
+  const raw = data.output_text || data.output?.flatMap((p) => p.content || []).map((p) => p.text || "").join("\n");
+  const out = copy.parseModelOutput(raw, canal);
+  if (!out.ok) return res.json({ agent: copy.AGENT, ok: false, motivo: out.motivo, faltantes: [] });
+
+  logger.info(`[${copy.AGENT}] ok`, { canal, estado: lead.estado });
+  res.json({
+    agent: copy.AGENT,
+    ok: true,
+    canal,
+    asunto: out.asunto,
+    mensaje: out.mensaje,
+    whatsappLink: canal === "whatsapp" ? copy.whatsappLink(lead.contacto, out.mensaje) : "",
+  });
+}, { secrets: [OPENAI_API_KEY], timeoutSeconds: 60 });

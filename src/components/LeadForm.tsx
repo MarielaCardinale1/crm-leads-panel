@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Trash2, Save } from 'lucide-react';
 import { ESTADO_LABELS, LeadEstado, LeadInput } from '../types';
+import { CopyDraft } from './CopyDraft';
 
 interface Props {
   initial: LeadInput;
@@ -104,6 +105,7 @@ export const LeadForm: React.FC<Props> = ({ initial, activeOffers, today, onSave
           <div><label className={labelCls}>Próxima acción</label><input className={inputCls} value={lead.proximaAccion} onChange={(e) => set({ proximaAccion: e.target.value })} /></div>
           <div><label className={labelCls}>Fecha próxima acción</label><input type="date" className={inputCls} value={lead.fechaProximaAccion} onChange={(e) => set({ fechaProximaAccion: e.target.value })} /></div>
           <div className="sm:col-span-2"><label className={labelCls}>Notas</label><textarea rows={3} className={inputCls} value={lead.notas} onChange={(e) => set({ notas: e.target.value })} /></div>
+          {lead.id && <CopyDraft leadId={lead.id} dirty={JSON.stringify(lead) !== JSON.stringify(initial)} />}
           {error && <p className="sm:col-span-2 text-sm text-rose-600 font-ui">{error}</p>}
         </div>
 
