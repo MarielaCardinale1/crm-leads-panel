@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Sparkles, Upload, Check, X, Instagram, Linkedin, Copy, RotateCcw, Loader2 } from 'lucide-react';
-import { Post, EstadoPost, fetchPosts, generateWeek, updatePost, uploadPostMedia, MAX_MEDIA_MB } from '../services/leadService';
+import { Sparkles, Upload, Check, X, Instagram, Linkedin, Copy, RotateCcw, Loader2, Send, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Post, EstadoPost, fetchPosts, generateWeek, updatePost, uploadPostMedia, publishNow, MAX_MEDIA_MB } from '../services/leadService';
 
 interface Props {
   onToast: (text: string, type?: 'success' | 'info' | 'error') => void;
@@ -118,8 +118,32 @@ const PostCard: React.FC<{ post: Post; onChanged: () => void; onToast: Props['on
             <textarea className={area} rows={7} maxLength={3000} value={li} disabled={!editable} onChange={(e) => setLi(e.target.value)} />
           </div>
 
+          {post.publicacion?.instagram?.ok ? (
+            <a href={post.publicacion.instagram.url || 'https://www.instagram.com/mariela.cardinale/'} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:underline">
+              <Instagram className="w-4 h-4" /> Publicado en Instagram <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          ) : post.publicacion?.instagram?.error ? (
+            <p className="flex items-start gap-1.5 text-xs text-rose-700 dark:text-rose-300">
+              <AlertTriangle className="w-4 h-4 shrink-0" /> Instagram: {post.publicacion.instagram.error} (intento {post.publicacion.instagram.intentos || 1} de 3)
+            </p>
+          ) : post.estado === 'aprobado' ? (
+            <p className="text-xs text-emerald-700 dark:text-emerald-300">Sale solo en Instagram el {fechaLinda(post.fechaPublicacion)}. LinkedIn: copiá el texto por ahora.</p>
+          ) : null}
+
           {editable && (
             <div className="flex flex-wrap gap-2">
+              {post.estado === 'aprobado' && !post.publicacion?.instagram?.ok && (
+                <button disabled={!!busy}
+                  onClick={() => window.confirm('¿Publicar este post en Instagram ahora mismo?') &&
+                    run('pub', async () => {
+                      const r = await publishNow(post.id);
+                      if (!r.ok) throw new Error(`Instagram: ${r.instagram?.error || 'no se pudo publicar'}`);
+                    }, 'Publicado en Instagram')}
+                  className={`${btn} bg-[#E8610A] text-white hover:bg-[#cf5608]`}>
+                  {busy === 'pub' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Publicar ya
+                </button>
+              )}
               {dirty && (
                 <button disabled={!!busy} onClick={() => run('save', () => updatePost(post.id, { instagram: ig, linkedin: li }), 'Cambios guardados')}
                   className={`${btn} bg-[#1a1a1a] text-white hover:bg-black`}>

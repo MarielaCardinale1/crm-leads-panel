@@ -8,6 +8,7 @@
  * - copyComercial → microagente Copy Comercial: borrador de mail/WhatsApp para un lead (no envía nada)
  * - redactorPosts → microagente Redactor de posts (CM 7a): 3 borradores por semana con placa
  * - postsApi / postsMedia → ver, editar, aprobar posts y subir foto/video propio
+ * - publicador / publicarAhora → microagente Publicador (CM 7b): sube a Instagram lo aprobado
  */
 const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
@@ -347,3 +348,129 @@ exports.postsMedia = wrap("postsMedia", async (req, res, user) => {
   await postsRef(user.uid).doc(id).set({ media: { tipo, ...media }, updatedAt: Date.now() }, { merge: true });
   res.json({ ok: true, media: { tipo, ...media } });
 }, { timeoutSeconds: 120, memory: "512MiB" });
+
+// ── Community Manager 7b: Publicador ─────────────────────────────────────
+// Publica en Instagram los posts APROBADOS cuando llega su fecha.
+// Borradores y descartados no se tocan. Si falla, lo anota en el post.
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+const publisher = require("./publisher-rules");
+const ig = require("./instagram");
+const IG_PAGE_TOKEN = defineSecret("IG_PAGE_TOKEN");
+const IG_USER_ID = process.env.IG_USER_ID || "17841458234882016"; // @mariela.cardinale (no es secreto)
+const LOCK_MS = 6 * 60 * 1000;
+
+/** Instagram solo acepta JPG y dentro de 4:5 … 1.91:1. Convierte (y agrega bordes) si hace falta. */
+async function urlParaInstagram(uid, postId, media) {
+  if (media.tipo === "video") return media.url;
+  if (media.jpgUrl) return media.jpgUrl;
+  const sharp = require("sharp");
+  const [buf] = await admin.storage().bucket().file(media.path).download();
+  let img = sharp(buf).rotate();
+  const { width, height } = await img.metadata();
+  if (publisher.necesitaBordes(width, height)) {
+    const vertical = width / height < 1;
+    img = img.resize(1080, vertical ? 1350 : 566, { fit: "contain", background: "#FFF8F0" });
+  }
+  const jpg = await img.flatten({ background: "#FFF8F0" }).jpeg({ quality: 90 }).toBuffer();
+  const saved = await saveMedia(uid, `${postId}-ig-${Date.now()}.jpg`, jpg, "image/jpeg");
+  await postsRef(uid).doc(postId).set({ media: { jpgUrl: saved.url } }, { merge: true });
+  return saved.url;
+}
+
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Publica UN post en Instagram. Devuelve el nuevo estado de publicacion.instagram. */
+async function publicarEnInstagram(uid, postRef, post, token) {
+  const prev = post.publicacion?.instagram || {};
+  const estado = { ...prev, ok: false, intentos: prev.intentos || 0 };
+  try {
+    let containerId = prev.containerId;
+    if (!containerId) {
+      const url = await urlParaInstagram(uid, postRef.id, post.media);
+      containerId = await ig.crearContenedor(IG_USER_ID, token, { tipo: post.media.tipo, url, caption: publisher.captionInstagram(post.instagram) });
+      estado.containerId = containerId;
+      await postRef.set({ publicacion: { instagram: estado } }, { merge: true });
+    }
+    const limite = Date.now() + (post.media.tipo === "video" ? 200000 : 45000);
+    for (;;) {
+      const { status_code: code, status } = await ig.estadoContenedor(containerId, token);
+      if (code === "FINISHED") break;
+      if (code === "ERROR" || code === "EXPIRED") throw Object.assign(new Error(`Instagram no aceptó el archivo (${status || code}).`), { reset: true });
+      if (Date.now() > limite) return { ...estado, error: "Instagram sigue procesando el video; se reintenta en 15 minutos." };
+      await esperar(5000);
+    }
+    const { id, permalink } = await ig.publicarContenedor(IG_USER_ID, token, containerId);
+    return { ok: true, id, url: permalink, at: Date.now(), intentos: estado.intentos + 1 };
+  } catch (error) {
+    const out = { ...estado, intentos: estado.intentos + 1, error: error.message, at: Date.now() };
+    if (error.reset) delete out.containerId;
+    return out;
+  }
+}
+
+/** Revisa los posts aprobados de un usuario y publica los que tocan. */
+async function correrPublicador(uid, soloId = null) {
+  const token = IG_PAGE_TOKEN.value();
+  const now = publisher.nowKey();
+  const snap = await postsRef(uid).where("estado", "==", "aprobado").get();
+  const resultados = [];
+  for (const doc of snap.docs) {
+    if (soloId && doc.id !== soloId) continue;
+    const post = { id: doc.id, ...doc.data() };
+    if (!publisher.isDue(post, now)) continue;
+    // Candado: evita publicar dos veces si dos corridas se pisan.
+    const tomado = await db.runTransaction(async (t) => {
+      const fresh = (await t.get(doc.ref)).data() || {};
+      if (fresh.publicando && Date.now() - fresh.publicando < LOCK_MS) return false;
+      t.update(doc.ref, { publicando: Date.now() });
+      return true;
+    });
+    if (!tomado) continue;
+    try {
+      const fresh = { id: doc.id, ...(await doc.ref.get()).data() };
+      const publicacion = { ...(fresh.publicacion || {}) };
+      if (publisher.pendingRedes(fresh).includes("instagram")) {
+        publicacion.instagram = await publicarEnInstagram(uid, doc.ref, fresh, token);
+      }
+      const estado = publisher.estadoTras({ ...fresh, publicacion });
+      await doc.ref.update({ publicacion, estado, publicando: admin.firestore.FieldValue.delete(), updatedAt: Date.now() });
+      resultados.push({ id: doc.id, oferta: fresh.etiqueta, instagram: publicacion.instagram });
+      logger.info(`[${publisher.AGENT}] ${doc.id}`, { ok: publicacion.instagram?.ok, error: publicacion.instagram?.error });
+    } catch (error) {
+      await doc.ref.update({ publicando: admin.firestore.FieldValue.delete() });
+      throw error;
+    }
+  }
+  return { now, resultados };
+}
+
+// Cada 15 minutos, hora de Madrid.
+exports.publicador = onSchedule(
+  { schedule: "every 15 minutes", timeZone: "Europe/Madrid", region: "us-central1", secrets: [IG_PAGE_TOKEN], timeoutSeconds: 300, memory: "512MiB" },
+  async () => {
+    const usuarios = await db.collection("crmPosts").listDocuments();
+    for (const u of usuarios) {
+      try {
+        const r = await correrPublicador(u.id);
+        if (r.resultados.length) logger.info(`[${publisher.AGENT}] ok`, { uid: u.id, publicados: r.resultados.length });
+      } catch (error) {
+        logger.error(`[${publisher.AGENT}] falló`, { uid: u.id, error: error?.message });
+      }
+    }
+  },
+);
+
+// "Publicar ya": pone la fecha en este momento y publica ese post (solo si está aprobado).
+exports.publicarAhora = wrap(publisher.AGENT, async (req, res, user) => {
+  if (req.method !== "POST") return res.status(405).json({ agent: publisher.AGENT, error: "Método no permitido." });
+  const id = String(req.body?.id || "").slice(0, 60);
+  const ref = postsRef(user.uid).doc(id);
+  const doc = id ? await ref.get() : null;
+  if (!doc?.exists) return res.status(404).json({ agent: publisher.AGENT, error: "No encontré ese post." });
+  if (doc.data().estado !== "aprobado") return res.status(400).json({ agent: publisher.AGENT, error: "Primero aprobalo." });
+  await ref.update({ fechaPublicacion: publisher.nowKey() });
+  const r = await correrPublicador(user.uid, id);
+  const ig = r.resultados[0]?.instagram;
+  if (!ig) return res.status(409).json({ agent: publisher.AGENT, error: "Ya se está publicando o ya estaba publicado." });
+  res.json({ ok: !!ig.ok, instagram: ig });
+}, { secrets: [IG_PAGE_TOKEN], timeoutSeconds: 300, memory: "512MiB" });

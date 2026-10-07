@@ -73,6 +73,7 @@ export interface Post {
   redes: ('instagram' | 'linkedin')[];
   media: { tipo: 'placa' | 'foto' | 'video'; url: string; path: string };
   estado: EstadoPost;
+  publicacion?: { instagram?: { ok: boolean; url?: string; error?: string; intentos?: number; at?: number } };
 }
 
 export async function generateWeek(): Promise<{ semana: string; creados: number; yaExistian: number; fallos: string[] }> {
@@ -99,4 +100,9 @@ export async function uploadPostMedia(id: string, file: File): Promise<{ ok: boo
   if (!MEDIA_TYPES.includes(file.type)) throw new Error('Usá JPG, PNG, MP4 o MOV.');
   if (file.size > MAX_MEDIA_MB * 1024 * 1024) throw new Error(`Máximo ${MAX_MEDIA_MB} MB.`);
   return call('postsMedia', { method: 'POST', body: file, headers: { 'Content-Type': file.type } }, `?id=${encodeURIComponent(id)}`);
+}
+
+/** Microagente Publicador: publica YA en Instagram un post aprobado. */
+export async function publishNow(id: string): Promise<{ ok: boolean; instagram: NonNullable<Post['publicacion']>['instagram'] }> {
+  return call('publicarAhora', { method: 'POST', body: JSON.stringify({ id }) });
 }
