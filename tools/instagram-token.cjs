@@ -33,5 +33,5 @@ async function get(url) {
   console.log(`\nListo. Pasale a Claude solo este numero: ${page.instagram_business_account.id}`);
 })().catch((e) => {
   console.error(`\nERROR: ${e.message}`);
-  process.exit(1);
+  process.exitCode = 1;
 });
