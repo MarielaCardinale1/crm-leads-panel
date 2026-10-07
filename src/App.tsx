@@ -8,6 +8,7 @@ import { LeadsTable } from './components/LeadsTable';
 import { LeadForm } from './components/LeadForm';
 import { OpportunitiesPanel } from './components/OpportunitiesPanel';
 import { LoginScreen } from './components/LoginScreen';
+import { PostsPanel } from './components/PostsPanel';
 import { EMPTY_LEAD, FilterState, Lead, LeadInput } from './types';
 import { fetchLeads, saveLead, deleteLead } from './services/leadService';
 import { exportLeadsToCSV } from './utils/csvExport';
@@ -42,6 +43,7 @@ export default function App() {
   const [dataError, setDataError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [editing, setEditing] = useState<LeadInput | null>(null);
+  const [tab, setTab] = useState<'leads' | 'redes'>('leads');
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
   const showToast = (text: string, type: 'success' | 'info' | 'error' = 'success') => {
@@ -259,6 +261,16 @@ export default function App() {
           </div>
         )}
 
+        <div className="inline-flex p-1 rounded-xl bg-white dark:bg-[#1C1814] border border-[#E0E0E0] dark:border-[#2E2721]">
+          {(['leads', 'redes'] as const).map((t) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold font-heading transition-colors ${tab === t ? 'bg-[#E8610A] text-white' : 'text-[#666] dark:text-[#99897A] hover:text-[#1a1a1a] dark:hover:text-[#F5EBE1]'}`}>
+              {t === 'leads' ? 'Leads' : 'Redes'}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'redes' ? <PostsPanel onToast={showToast} /> : (<>
         <StatCards stats={stats} />
 
         {!isDataLoading && <OpportunitiesPanel leads={leads} onOpen={(l) => setEditing(toInput(l))} />}
@@ -274,6 +286,7 @@ export default function App() {
         />
 
         <LeadsTable leads={filteredLeads} isLoading={isDataLoading} today={today} onEdit={(l) => setEditing(toInput(l))} />
+        </>)}
       </main>
 
       {editing && (

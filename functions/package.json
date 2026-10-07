@@ -9,7 +9,10 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@fontsource/poppins": "^5.3.0",
+    "@resvg/resvg-js": "^2.6.2",
     "firebase-admin": "^12.7.0",
-    "firebase-functions": "^6.1.2"
+    "firebase-functions": "^6.1.2",
+    "satori": "^0.35.1"
   }
 }
