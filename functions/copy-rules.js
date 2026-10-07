@@ -11,7 +11,7 @@
  *  - valida y limpia lo que devuelve el modelo.
  */
 const AGENT = "copyComercial";
-const CANALES = ["email", "whatsapp"];
+const CANALES = ["email", "whatsapp", "instagram"];
 
 // Lo único que el mensaje puede afirmar de cada oferta. Si no está acá, no se promete.
 const OFFER_FACTS = {
@@ -27,6 +27,25 @@ const OFFER_FACTS = {
     "Confirmaciones por WhatsApp y sincronización con Google, Apple y Outlook.",
     "Precio fijo: 19 €/mes o 190 €/año. Sin comisión por reserva, sin coste por profesional, sin permanencia.",
   ],
+  "ficha de google": [
+    "Mariela deja lista la ficha de Google Business (Google Maps) del negocio: alta, categorías correctas y fotos.",
+    "Es donde las clientas nuevas encuentran a un negocio local cuando buscan en Google o en Maps.",
+  ],
+  "sitio web": [
+    "Mariela hace la web (y si hace falta la tienda online) de negocios locales.",
+    "Se puede combinar con la ficha de Google y con la agenda online.",
+  ],
+};
+
+// Nombres alternativos con los que se puede cargar la oferta en un lead.
+const OFFER_ALIASES = {
+  "gestor de turnos": "agenda online",
+  "tienda merch": "ecommerce para creadores",
+  "ficha de google business": "ficha de google",
+  "google maps": "ficha de google",
+  "web": "sitio web",
+  "diseño web": "sitio web",
+  "diseño web + ficha de google": "sitio web",
 };
 
 const OBJETIVOS = {
@@ -43,7 +62,7 @@ function norm(s) {
 /** ¿Se puede redactar? Devuelve { ok, faltantes[], motivo }. */
 function checkLead(lead, canal) {
   const faltantes = [];
-  if (!CANALES.includes(canal)) return { ok: false, faltantes: [], motivo: "Canal no válido: usá email o whatsapp." };
+  if (!CANALES.includes(canal)) return { ok: false, faltantes: [], motivo: "Canal no válido: usá email, whatsapp o instagram." };
   if (["ganado", "perdido"].includes(lead?.estado)) {
     return { ok: false, faltantes: [], motivo: `El lead está ${lead.estado}: no hace falta mensaje comercial.` };
   }
@@ -58,15 +77,19 @@ function checkLead(lead, canal) {
 }
 
 function factsFor(oferta) {
-  return OFFER_FACTS[norm(oferta)] || null;
+  const key = norm(oferta);
+  return OFFER_FACTS[OFFER_ALIASES[key] || key] || null;
 }
 
 /** Arma los mensajes para el modelo. Solo datos del lead + hechos de la oferta. */
 function buildPrompt(lead, canal) {
   const facts = factsFor(lead.oferta);
-  const formato = canal === "email"
-    ? "Email: devolvé un asunto de máximo 60 caracteres y un cuerpo de máximo 120 palabras, con saludo y firma \"Mariela\"."
-    : "WhatsApp: sin asunto, máximo 450 caracteres, tono cercano, sin saludos largos, firma \"Mariela\".";
+  const FORMATOS = {
+    email: "Email: devolvé un asunto de máximo 60 caracteres y un cuerpo de máximo 120 palabras, con saludo y firma \"Mariela\".",
+    whatsapp: "WhatsApp: sin asunto, máximo 450 caracteres, tono cercano, sin saludos largos, firma \"Mariela\".",
+    instagram: "DM de Instagram: sin asunto, máximo 350 caracteres, tono cercano y natural, sin firma formal. En un primer contacto NO pongas links (Instagram filtra los DMs con links); terminá con una pregunta corta.",
+  };
+  const formato = FORMATOS[canal];
   const system = [
     "Sos el redactor comercial de Mariela Cardinale. Escribís UN borrador; Mariela lo revisa y lo manda a mano.",
     "Español de España (tú, \"cita\", \"reserva\", \"señal\"), cálido y directo. Nada de frases de marketing vacías ni emojis en exceso (máximo uno).",
@@ -74,7 +97,7 @@ function buildPrompt(lead, canal) {
     facts ? "" : "La oferta no tiene hechos cargados: no describas características ni precios, solo proponé conversar.",
     "Un solo pedido concreto al final (una pregunta fácil de responder). No presiones ni uses urgencia falsa.",
     formato,
-    "Respondé SOLO con JSON: {\"asunto\": string, \"mensaje\": string}. En WhatsApp, asunto vacío.",
+    "Respondé SOLO con JSON: {\"asunto\": string, \"mensaje\": string}. Si no es email, asunto vacío.",
   ].filter(Boolean).join("\n");
   const user = JSON.stringify({
     objetivo: OBJETIVOS[lead.estado],
@@ -108,7 +131,7 @@ function parseModelOutput(raw, canal) {
   const asunto = canal === "email" ? String(data?.asunto || "").trim().slice(0, 80) : "";
   if (!mensaje) return { ok: false, motivo: "El modelo devolvió un mensaje vacío." };
   if (canal === "email" && !asunto) return { ok: false, motivo: "Falta el asunto del email." };
-  const limite = canal === "whatsapp" ? 600 : 1500;
+  const limite = { email: 1500, whatsapp: 600, instagram: 450 }[canal];
   return { ok: true, asunto, mensaje: mensaje.slice(0, limite), recortado: mensaje.length > limite };
 }
 

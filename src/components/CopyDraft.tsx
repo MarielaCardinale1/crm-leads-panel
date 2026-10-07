@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { Mail, MessageCircle, Copy, Check, ExternalLink, Sparkles } from 'lucide-react';
-import { CopyResult, draftMessage } from '../services/leadService';
+import { Mail, MessageCircle, Copy, Check, ExternalLink, Sparkles, Instagram } from 'lucide-react';
+import { Canal, CopyResult, draftMessage } from '../services/leadService';
 
 /** Bloque "Redactar mensaje" (microagente Copy Comercial). Solo arma el borrador: enviar es cosa de Mariela. */
 export const CopyDraft: React.FC<{ leadId: string; dirty: boolean }> = ({ leadId, dirty }) => {
-  const [loading, setLoading] = useState<'email' | 'whatsapp' | null>(null);
+  const [loading, setLoading] = useState<Canal | null>(null);
   const [result, setResult] = useState<CopyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const run = async (canal: 'email' | 'whatsapp') => {
+  const run = async (canal: Canal) => {
     setLoading(canal);
     setError(null);
     setResult(null);
@@ -46,6 +46,9 @@ export const CopyDraft: React.FC<{ leadId: string; dirty: boolean }> = ({ leadId
           </button>
           <button type="button" disabled={!!loading} onClick={() => run('whatsapp')} className={btn}>
             <MessageCircle className="w-3.5 h-3.5" /> {loading === 'whatsapp' ? 'Redactando…' : 'WhatsApp'}
+          </button>
+          <button type="button" disabled={!!loading} onClick={() => run('instagram')} className={btn}>
+            <Instagram className="w-3.5 h-3.5" /> {loading === 'instagram' ? 'Redactando…' : 'DM Instagram'}
           </button>
         </div>
       </div>

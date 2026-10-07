@@ -25,7 +25,24 @@ test("Ganado o perdido: no hace falta mensaje", () => {
 });
 
 test("Canal inválido", () => {
-  assert.equal(checkLead(base, "instagram").ok, false);
+  assert.equal(checkLead(base, "telegram").ok, false);
+});
+
+test("Instagram: DM corto, sin links en primer contacto, sin asunto", () => {
+  assert.equal(checkLead(base, "instagram").ok, true);
+  assert.match(buildPrompt(base, "instagram").system, /NO pongas links/);
+  const r = parseModelOutput(JSON.stringify({ asunto: "x", mensaje: "b".repeat(700) }), "instagram");
+  assert.equal(r.asunto, "");
+  assert.equal(r.mensaje.length, 450);
+});
+
+test("Ficha de Google y web tienen hechos; los alias se reconocen", () => {
+  const ficha = JSON.parse(buildPrompt({ ...base, oferta: "Google Maps" }, "instagram").user);
+  assert.ok(ficha.hechosDeLaOferta.some((h) => h.includes("Google Business")));
+  const web = JSON.parse(buildPrompt({ ...base, oferta: "Diseño web" }, "email").user);
+  assert.ok(web.hechosDeLaOferta.length > 0);
+  const agenda = JSON.parse(buildPrompt({ ...base, oferta: "Gestor de Turnos" }, "email").user);
+  assert.ok(agenda.hechosDeLaOferta.some((h) => h.includes("19 €/mes")));
 });
 
 test("El prompt lleva solo hechos reales de la oferta", () => {
@@ -38,7 +55,7 @@ test("El prompt lleva solo hechos reales de la oferta", () => {
 });
 
 test("Oferta sin hechos cargados: le prohíbe describir características", () => {
-  const { system, user } = buildPrompt({ ...base, oferta: "Web a medida" }, "email");
+  const { system, user } = buildPrompt({ ...base, oferta: "Apps turísticas" }, "email");
   assert.deepEqual(JSON.parse(user).hechosDeLaOferta, []);
   assert.match(system, /no describas características ni precios/);
 });
