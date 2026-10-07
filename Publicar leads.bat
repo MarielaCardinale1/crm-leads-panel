@@ -8,7 +8,8 @@ if not exist "node_modules" (
   echo Instalando dependencias del panel...
   call npm install || goto :error
 )
-if not exist "functions\node_modules" (
+rem Siempre: asi se instalan las librerias nuevas de los agentes
+(
   echo Instalando dependencias de las funciones...
   pushd functions
   call npm install || (popd & goto :error)
