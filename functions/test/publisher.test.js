@@ -17,13 +17,26 @@ test("Solo publica aprobados con fecha cumplida", () => {
 });
 
 test("No republica lo ya publicado y corta tras 3 fallos", () => {
-  assert.equal(p.isDue({ ...base, publicacion: { instagram: { ok: true } } }, "2026-10-13 10:00"), false);
-  assert.equal(p.isDue({ ...base, publicacion: { instagram: { ok: false, intentos: 3 } } }, "2026-10-13 10:00"), false);
-  assert.equal(p.isDue({ ...base, publicacion: { instagram: { ok: false, intentos: 1 } } }, "2026-10-13 10:00"), true);
+  const ig = ["instagram"];
+  assert.equal(p.isDue({ ...base, publicacion: { instagram: { ok: true } } }, "2026-10-13 10:00", ig), false);
+  assert.equal(p.isDue({ ...base, publicacion: { instagram: { ok: false, intentos: 3 } } }, "2026-10-13 10:00", ig), false);
+  assert.equal(p.isDue({ ...base, publicacion: { instagram: { ok: false, intentos: 1 } } }, "2026-10-13 10:00", ig), true);
 });
 
-test("LinkedIn todavía no se publica (sin app)", () => {
-  assert.deepEqual(p.pendingRedes({ ...base, redes: ["linkedin"] }), []);
+test("LinkedIn solo se publica si está conectado", () => {
+  assert.deepEqual(p.pendingRedes({ ...base, redes: ["linkedin"] }, ["instagram"]), []);
+  assert.deepEqual(p.pendingRedes({ ...base, redes: ["linkedin"] }, ["instagram", "linkedin"]), ["linkedin"]);
+  assert.equal(p.isDue({ ...base, redes: ["linkedin"] }, "2026-10-13 10:00", ["instagram"]), false);
+});
+
+test("Texto de LinkedIn: escapa caracteres especiales", () => {
+  assert.equal(p.textoLinkedin("Reservas (24h) #agenda @ya"), "Reservas \\(24h\\) \\#agenda \\@ya");
+  assert.equal(p.textoLinkedin("link https://x.com/a_b").includes("a\\_b"), true);
+});
+
+test("Días que le quedan a la conexión de LinkedIn", () => {
+  assert.equal(p.diasLinkedin(Date.now() + 10 * 86400000 + 1000), 10);
+  assert.equal(p.diasLinkedin(0), -1);
 });
 
 test("Pasa a publicado solo cuando salieron todas sus redes", () => {

@@ -87,6 +87,21 @@ export default function App() {
     }
   }, []);
 
+  // Vuelta de LinkedIn después de conectar
+  useEffect(() => {
+    const r = new URLSearchParams(window.location.search).get('linkedin');
+    if (!r) return;
+    setTab('redes');
+    const msg: Record<string, [string, 'success' | 'info' | 'error']> = {
+      ok: ['LinkedIn conectado', 'success'],
+      cancelado: ['Conexión con LinkedIn cancelada', 'info'],
+      vencido: ['El enlace venció, probá de nuevo', 'error'],
+    };
+    const [text, type] = msg[r] || ['No se pudo conectar LinkedIn', 'error'];
+    showToast(text, type);
+    window.history.replaceState({}, '', window.location.pathname);
+  }, []);
+
   useEffect(() => {
     if (currentUser) loadLeads();
     else setLeads([]);

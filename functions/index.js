@@ -8,7 +8,8 @@
  * - copyComercial → microagente Copy Comercial: borrador de mail/WhatsApp para un lead (no envía nada)
  * - redactorPosts → microagente Redactor de posts (CM 7a): 3 borradores por semana con placa
  * - postsApi / postsMedia → ver, editar, aprobar posts y subir foto/video propio
- * - publicador / publicarAhora → microagente Publicador (CM 7b): sube a Instagram lo aprobado
+ * - publicador / publicarAhora → microagente Publicador (CM 7b): sube a Instagram y LinkedIn lo aprobado
+ * - linkedinConectar / linkedinCallback → conectar LinkedIn (dura 60 días)
  */
 const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
@@ -356,6 +357,37 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const publisher = require("./publisher-rules");
 const ig = require("./instagram");
 const IG_PAGE_TOKEN = defineSecret("IG_PAGE_TOKEN");
+const LINKEDIN_CLIENT_ID = defineSecret("LINKEDIN_CLIENT_ID");
+const LINKEDIN_CLIENT_SECRET = defineSecret("LINKEDIN_CLIENT_SECRET");
+const li = require("./linkedin");
+const LI_REDIRECT = "https://us-central1-gen-lang-client-0047460717.cloudfunctions.net/linkedinCallback";
+const PANEL_URL = "https://marielacardinale-leads.web.app";
+const liRef = (uid) => db.collection("crmLinkedin").doc(uid);
+const PUB_SECRETS = [IG_PAGE_TOKEN, LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET];
+
+/** Conexión de LinkedIn vigente (token descifrado) o null. */
+async function linkedinConexion(uid) {
+  const d = (await liRef(uid).get()).data();
+  if (!d?.tokenCifrado || publisher.diasLinkedin(d.expiresAt) < 0) return null;
+  return { token: li.descifrar(d.tokenCifrado, LINKEDIN_CLIENT_SECRET.value()), author: `urn:li:person:${d.sub}` };
+}
+
+/** Publica UN post en LinkedIn (texto + placa/foto/video). */
+async function publicarEnLinkedin(post, conexion) {
+  const prev = post.publicacion?.linkedin || {};
+  const intentos = (prev.intentos || 0) + 1;
+  try {
+    const [buf] = await admin.storage().bucket().file(post.media.path).download();
+    const tipoArchivo = post.media.tipo === "video" ? null : post.media.path.endsWith(".png") ? "image/png" : "image/jpeg";
+    const mediaId = post.media.tipo === "video"
+      ? await li.subirVideo(conexion.token, conexion.author, buf)
+      : await li.subirImagen(conexion.token, conexion.author, buf, tipoArchivo);
+    const { id, url } = await li.publicarPost(conexion.token, { author: conexion.author, commentary: publisher.textoLinkedin(post.linkedin), mediaId });
+    return { ok: true, id, url, at: Date.now(), intentos };
+  } catch (error) {
+    return { ok: false, intentos, error: error.message, at: Date.now() };
+  }
+}
 const IG_USER_ID = process.env.IG_USER_ID || "17841458234882016"; // @mariela.cardinale (no es secreto)
 const LOCK_MS = 6 * 60 * 1000;
 
@@ -412,12 +444,14 @@ async function publicarEnInstagram(uid, postRef, post, token) {
 async function correrPublicador(uid, soloId = null) {
   const token = IG_PAGE_TOKEN.value();
   const now = publisher.nowKey();
+  const conexionLi = await linkedinConexion(uid).catch(() => null);
+  const activas = conexionLi ? ["instagram", "linkedin"] : ["instagram"];
   const snap = await postsRef(uid).where("estado", "==", "aprobado").get();
   const resultados = [];
   for (const doc of snap.docs) {
     if (soloId && doc.id !== soloId) continue;
     const post = { id: doc.id, ...doc.data() };
-    if (!publisher.isDue(post, now)) continue;
+    if (!publisher.isDue(post, now, activas)) continue;
     // Candado: evita publicar dos veces si dos corridas se pisan.
     const tomado = await db.runTransaction(async (t) => {
       const fresh = (await t.get(doc.ref)).data() || {};
@@ -429,13 +463,17 @@ async function correrPublicador(uid, soloId = null) {
     try {
       const fresh = { id: doc.id, ...(await doc.ref.get()).data() };
       const publicacion = { ...(fresh.publicacion || {}) };
-      if (publisher.pendingRedes(fresh).includes("instagram")) {
+      const pendientes = publisher.pendingRedes(fresh, activas);
+      if (pendientes.includes("instagram")) {
         publicacion.instagram = await publicarEnInstagram(uid, doc.ref, fresh, token);
+      }
+      if (pendientes.includes("linkedin")) {
+        publicacion.linkedin = await publicarEnLinkedin(fresh, conexionLi);
       }
       const estado = publisher.estadoTras({ ...fresh, publicacion });
       await doc.ref.update({ publicacion, estado, publicando: admin.firestore.FieldValue.delete(), updatedAt: Date.now() });
-      resultados.push({ id: doc.id, oferta: fresh.etiqueta, instagram: publicacion.instagram });
-      logger.info(`[${publisher.AGENT}] ${doc.id}`, { ok: publicacion.instagram?.ok, error: publicacion.instagram?.error });
+      resultados.push({ id: doc.id, oferta: fresh.etiqueta, instagram: publicacion.instagram, linkedin: publicacion.linkedin });
+      logger.info(`[${publisher.AGENT}] ${doc.id}`, { ig: publicacion.instagram?.ok ?? null, li: publicacion.linkedin?.ok ?? null, igError: publicacion.instagram?.error, liError: publicacion.linkedin?.error });
     } catch (error) {
       await doc.ref.update({ publicando: admin.firestore.FieldValue.delete() });
       throw error;
@@ -446,7 +484,7 @@ async function correrPublicador(uid, soloId = null) {
 
 // Cada 15 minutos, hora de Madrid.
 exports.publicador = onSchedule(
-  { schedule: "every 15 minutes", timeZone: "Europe/Madrid", region: "us-central1", secrets: [IG_PAGE_TOKEN], timeoutSeconds: 300, memory: "512MiB" },
+  { schedule: "every 15 minutes", timeZone: "Europe/Madrid", region: "us-central1", secrets: PUB_SECRETS, timeoutSeconds: 540, memory: "1GiB" },
   async () => {
     const usuarios = await db.collection("crmPosts").listDocuments();
     for (const u of usuarios) {
@@ -470,7 +508,43 @@ exports.publicarAhora = wrap(publisher.AGENT, async (req, res, user) => {
   if (doc.data().estado !== "aprobado") return res.status(400).json({ agent: publisher.AGENT, error: "Primero aprobalo." });
   await ref.update({ fechaPublicacion: publisher.nowKey() });
   const r = await correrPublicador(user.uid, id);
-  const ig = r.resultados[0]?.instagram;
-  if (!ig) return res.status(409).json({ agent: publisher.AGENT, error: "Ya se está publicando o ya estaba publicado." });
-  res.json({ ok: !!ig.ok, instagram: ig });
-}, { secrets: [IG_PAGE_TOKEN], timeoutSeconds: 300, memory: "512MiB" });
+  const out = r.resultados[0];
+  if (!out) return res.status(409).json({ agent: publisher.AGENT, error: "Ya se está publicando o ya estaba publicado." });
+  const redes = [out.instagram, out.linkedin].filter(Boolean);
+  res.json({ ok: redes.every((x) => x.ok), instagram: out.instagram, linkedin: out.linkedin });
+}, { secrets: PUB_SECRETS, timeoutSeconds: 540, memory: "1GiB" });
+
+// ── LinkedIn: conectar (dura 60 días) ────────────────────────────────────
+exports.linkedinConectar = wrap("linkedin", async (req, res, user) => {
+  if (req.method === "GET") {
+    const d = (await liRef(user.uid).get()).data();
+    return res.json({ conectado: !!d?.tokenCifrado && publisher.diasLinkedin(d.expiresAt) >= 0, dias: publisher.diasLinkedin(d?.expiresAt), nombre: d?.nombre || "" });
+  }
+  if (req.method !== "POST") return res.status(405).json({ agent: "linkedin", error: "Método no permitido." });
+  const state = randomUUID();
+  await liRef(user.uid).set({ state, stateAt: Date.now() }, { merge: true });
+  res.json({ url: li.authUrl(LINKEDIN_CLIENT_ID.value(), LI_REDIRECT, state) });
+}, { secrets: [LINKEDIN_CLIENT_ID] });
+
+// LinkedIn vuelve acá después de que Mariela acepta. Público, pero solo sirve con un `state` recién creado.
+exports.linkedinCallback = onRequest({ region: "us-central1", secrets: [LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET] }, async (req, res) => {
+  const volver = (r) => res.redirect(`${PANEL_URL}/?linkedin=${r}`);
+  try {
+    const { code, state, error } = req.query;
+    if (error || !code || !state) return volver("cancelado");
+    const snap = await db.collection("crmLinkedin").where("state", "==", String(state)).limit(1).get();
+    const doc = snap.docs[0];
+    if (!doc || Date.now() - (doc.data().stateAt || 0) > 15 * 60 * 1000) return volver("vencido");
+    const { token, expiresAt } = await li.canjearCodigo({ code: String(code), clientId: LINKEDIN_CLIENT_ID.value(), clientSecret: LINKEDIN_CLIENT_SECRET.value(), redirectUri: LI_REDIRECT });
+    const { sub, nombre } = await li.quienSoy(token);
+    await doc.ref.set({
+      tokenCifrado: li.cifrar(token, LINKEDIN_CLIENT_SECRET.value()), expiresAt, sub, nombre,
+      state: admin.firestore.FieldValue.delete(), stateAt: admin.firestore.FieldValue.delete(), conectadoAt: Date.now(),
+    }, { merge: true });
+    logger.info("[linkedin] conectado", { uid: doc.id, dias: publisher.diasLinkedin(expiresAt) });
+    volver("ok");
+  } catch (e) {
+    logger.error("[linkedin] callback falló", { error: e?.message });
+    volver("error");
+  }
+});

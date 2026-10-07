@@ -9,7 +9,7 @@
  * Esta parte es determinística (se prueba con node --test).
  */
 const AGENT = "publicador";
-const REDES_ACTIVAS = ["instagram"]; // LinkedIn se suma cuando esté su app
+const REDES = ["instagram", "linkedin"]; // LinkedIn solo si está conectado (se pasa en `activas`)
 const MAX_INTENTOS = 3;
 const IG_RATIO_MIN = 4 / 5; // Instagram acepta fotos entre 4:5 …
 const IG_RATIO_MAX = 1.91; // … y 1.91:1
@@ -25,16 +25,16 @@ function nowKey(date = new Date(), timeZone = "Europe/Madrid") {
 }
 
 /** Redes que este post todavía tiene que publicar (y que ya están conectadas). */
-function pendingRedes(post) {
+function pendingRedes(post, activas = REDES) {
   const pub = post.publicacion || {};
   return (post.redes || [])
-    .filter((r) => REDES_ACTIVAS.includes(r))
+    .filter((r) => activas.includes(r))
     .filter((r) => !pub[r]?.ok && (pub[r]?.intentos || 0) < MAX_INTENTOS);
 }
 
 /** ¿Hay que publicarlo ahora? Solo aprobados, con fecha cumplida y algo pendiente. */
-function isDue(post, now) {
-  return post.estado === "aprobado" && !!post.fechaPublicacion && post.fechaPublicacion <= now && pendingRedes(post).length > 0;
+function isDue(post, now, activas = REDES) {
+  return post.estado === "aprobado" && !!post.fechaPublicacion && post.fechaPublicacion <= now && pendingRedes(post, activas).length > 0;
 }
 
 /** Pasa a "publicado" cuando todas sus redes elegidas ya salieron. */
@@ -51,10 +51,23 @@ function captionInstagram(text) {
   return limpio.trim().slice(0, 2200);
 }
 
+/**
+ * LinkedIn: el texto usa "little text", donde ( ) [ ] { } < > @ | ~ _ * # \\ son especiales.
+ * Si no se escapan, LinkedIn corta el post. Tope 3000 caracteres.
+ */
+function textoLinkedin(text) {
+  return String(text || "").trim().slice(0, 3000).replace(/[\\|{}@\[\]()<>#*_~]/g, (c) => `\\${c}`);
+}
+
+/** ¿Hay que reconectar LinkedIn? (la conexión dura 60 días) */
+function diasLinkedin(expiresAt, now = Date.now()) {
+  return expiresAt ? Math.floor((expiresAt - now) / 86400000) : -1;
+}
+
 /** Si la foto no entra en el formato de Instagram, hay que agregarle bordes (sin recortar). */
 function necesitaBordes(width, height) {
   const r = width / height;
   return r < IG_RATIO_MIN || r > IG_RATIO_MAX;
 }
 
-module.exports = { AGENT, REDES_ACTIVAS, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };
+module.exports = { AGENT, REDES, textoLinkedin, diasLinkedin, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };

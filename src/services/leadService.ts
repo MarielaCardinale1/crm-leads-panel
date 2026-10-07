@@ -59,6 +59,8 @@ export async function draftMessage(leadId: string, canal: Canal): Promise<CopyRe
 // ---- Community Manager 7a: posts de la semana (borradores; no publica nada) ----
 export type EstadoPost = 'borrador' | 'aprobado' | 'publicado' | 'descartado';
 
+export interface Publicacion { ok: boolean; url?: string; error?: string; intentos?: number; at?: number }
+
 export interface Post {
   id: string;
   semana: string;
@@ -73,7 +75,7 @@ export interface Post {
   redes: ('instagram' | 'linkedin')[];
   media: { tipo: 'placa' | 'foto' | 'video'; url: string; path: string };
   estado: EstadoPost;
-  publicacion?: { instagram?: { ok: boolean; url?: string; error?: string; intentos?: number; at?: number } };
+  publicacion?: { instagram?: Publicacion; linkedin?: Publicacion };
 }
 
 export async function generateWeek(): Promise<{ semana: string; creados: number; yaExistian: number; fallos: string[] }> {
@@ -103,6 +105,16 @@ export async function uploadPostMedia(id: string, file: File): Promise<{ ok: boo
 }
 
 /** Microagente Publicador: publica YA en Instagram un post aprobado. */
-export async function publishNow(id: string): Promise<{ ok: boolean; instagram: NonNullable<Post['publicacion']>['instagram'] }> {
+export async function publishNow(id: string): Promise<{ ok: boolean; instagram?: Publicacion; linkedin?: Publicacion }> {
   return call('publicarAhora', { method: 'POST', body: JSON.stringify({ id }) });
+}
+
+/** LinkedIn: estado de la conexión (dura 60 días) y botón para conectar. */
+export async function linkedinStatus(): Promise<{ conectado: boolean; dias: number; nombre: string }> {
+  return call('linkedinConectar', { method: 'GET' });
+}
+
+export async function linkedinConnect(): Promise<void> {
+  const { url } = await call<{ url: string }>('linkedinConectar', { method: 'POST', body: '{}' });
+  window.location.href = url;
 }
