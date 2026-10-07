@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, MessageCircle, Copy, Check, ExternalLink, Sparkles, Instagram } from 'lucide-react';
+import { Mail, MessageCircle, Copy, Check, ExternalLink, Sparkles, Instagram, Linkedin } from 'lucide-react';
 import { Canal, CopyResult, draftMessage } from '../services/leadService';
 
 /** Bloque "Redactar mensaje" (microagente Copy Comercial). Solo arma el borrador: enviar es cosa de Mariela. */
@@ -40,7 +40,7 @@ export const CopyDraft: React.FC<{ leadId: string; dirty: boolean }> = ({ leadId
         <span className="text-xs font-semibold text-[#1a1a1a] dark:text-[#F5EBE1] font-heading flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-[#E8610A]" /> Redactar mensaje
         </span>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button type="button" disabled={!!loading} onClick={() => run('email')} className={btn}>
             <Mail className="w-3.5 h-3.5" /> {loading === 'email' ? 'Redactando…' : 'Email'}
           </button>
@@ -49,6 +49,9 @@ export const CopyDraft: React.FC<{ leadId: string; dirty: boolean }> = ({ leadId
           </button>
           <button type="button" disabled={!!loading} onClick={() => run('instagram')} className={btn}>
             <Instagram className="w-3.5 h-3.5" /> {loading === 'instagram' ? 'Redactando…' : 'DM Instagram'}
+          </button>
+          <button type="button" disabled={!!loading} onClick={() => run('linkedin')} className={btn}>
+            <Linkedin className="w-3.5 h-3.5" /> {loading === 'linkedin' ? 'Redactando…' : 'LinkedIn'}
           </button>
         </div>
       </div>

@@ -11,7 +11,7 @@
  *  - valida y limpia lo que devuelve el modelo.
  */
 const AGENT = "copyComercial";
-const CANALES = ["email", "whatsapp", "instagram"];
+const CANALES = ["email", "whatsapp", "instagram", "linkedin"];
 
 // Lo único que el mensaje puede afirmar de cada oferta. Si no está acá, no se promete.
 const OFFER_FACTS = {
@@ -62,7 +62,7 @@ function norm(s) {
 /** ¿Se puede redactar? Devuelve { ok, faltantes[], motivo }. */
 function checkLead(lead, canal) {
   const faltantes = [];
-  if (!CANALES.includes(canal)) return { ok: false, faltantes: [], motivo: "Canal no válido: usá email, whatsapp o instagram." };
+  if (!CANALES.includes(canal)) return { ok: false, faltantes: [], motivo: "Canal no válido: usá email, whatsapp, instagram o linkedin." };
   if (["ganado", "perdido"].includes(lead?.estado)) {
     return { ok: false, faltantes: [], motivo: `El lead está ${lead.estado}: no hace falta mensaje comercial.` };
   }
@@ -87,6 +87,7 @@ function buildPrompt(lead, canal) {
   const FORMATOS = {
     email: "Email: devolvé un asunto de máximo 60 caracteres y un cuerpo de máximo 120 palabras, con saludo y firma \"Mariela\".",
     whatsapp: "WhatsApp: sin asunto, máximo 450 caracteres, tono cercano, sin saludos largos, firma \"Mariela\".",
+    linkedin: "Mensaje de LinkedIn: sin asunto, máximo 300 caracteres (entra en la nota de una solicitud de conexión), tono profesional pero cercano, sin links en el primer contacto, terminá con una pregunta corta.",
     instagram: "DM de Instagram: sin asunto, máximo 350 caracteres, tono cercano y natural, sin firma formal. En un primer contacto NO pongas links (Instagram filtra los DMs con links); terminá con una pregunta corta.",
   };
   const formato = FORMATOS[canal];
@@ -131,7 +132,7 @@ function parseModelOutput(raw, canal) {
   const asunto = canal === "email" ? String(data?.asunto || "").trim().slice(0, 80) : "";
   if (!mensaje) return { ok: false, motivo: "El modelo devolvió un mensaje vacío." };
   if (canal === "email" && !asunto) return { ok: false, motivo: "Falta el asunto del email." };
-  const limite = { email: 1500, whatsapp: 600, instagram: 450 }[canal];
+  const limite = { email: 1500, whatsapp: 600, instagram: 450, linkedin: 300 }[canal];
   return { ok: true, asunto, mensaje: mensaje.slice(0, limite), recortado: mensaje.length > limite };
 }
 

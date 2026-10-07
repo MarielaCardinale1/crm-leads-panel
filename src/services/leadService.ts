@@ -39,7 +39,7 @@ export async function fetchDailyOpportunities(): Promise<DailyOpportunities> {
   return call('leadScoring', { method: 'GET' });
 }
 
-export type Canal = 'email' | 'whatsapp' | 'instagram';
+export type Canal = 'email' | 'whatsapp' | 'instagram' | 'linkedin';
 
 export interface CopyResult {
   ok: boolean;

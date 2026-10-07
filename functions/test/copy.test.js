@@ -84,3 +84,9 @@ test("Link de WhatsApp solo si el contacto es un teléfono", () => {
   assert.equal(whatsappLink("laura@mail.com", "Hola"), "");
   assert.equal(whatsappLink("@laura.ig", "Hola"), "");
 });
+
+test("LinkedIn: entra en la nota de conexión (300)", () => {
+  assert.equal(checkLead(base, "linkedin").ok, true);
+  const r = parseModelOutput(JSON.stringify({ mensaje: "c".repeat(500) }), "linkedin");
+  assert.equal(r.mensaje.length, 300);
+});
