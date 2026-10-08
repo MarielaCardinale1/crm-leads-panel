@@ -102,6 +102,28 @@ export const LeadForm: React.FC<Props> = ({ initial, activeOffers, today, onSave
             {check('pidioDemo', 'Pidió demo')}
             {check('intencionExplicita', 'Intención clara de compra')}
           </div>
+          <div className="sm:col-span-2 rounded-xl border border-[#F5C9A8]/60 dark:border-[#3D2E22] p-3">
+            <p className="text-xs font-semibold text-[#1a1a1a] dark:text-[#F5EBE1] mb-1">Me dio permiso para escribirle por:</p>
+            <p className="text-[11px] text-[#666] dark:text-[#99897A] mb-2">Sin permiso no se arma mail ni WhatsApp (ley). Marcalo cuando te lo dé, por ejemplo cuando te contesta "sí, enséñame" o te pasa su número.</p>
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              {(['dm', 'whatsapp', 'email'] as const).map((k) => {
+                const fecha = lead.consentimiento?.[k];
+                return (
+                  <label key={k} className="flex items-center gap-2 text-sm text-[#1a1a1a] dark:text-[#F5EBE1] font-ui cursor-pointer">
+                    <input type="checkbox" checked={!!fecha} className="w-4 h-4 accent-[#E8610A]"
+                      onChange={(e) => {
+                        const c = { ...(lead.consentimiento || {}) };
+                        if (e.target.checked) c[k] = today;
+                        else delete c[k];
+                        set({ consentimiento: c });
+                      }} />
+                    {k === 'dm' ? 'DM' : k === 'whatsapp' ? 'WhatsApp' : 'Mail'}
+                    {fecha && <span className="text-[11px] text-[#999]">({fecha})</span>}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
           <div><label className={labelCls}>Próxima acción</label><input className={inputCls} value={lead.proximaAccion} onChange={(e) => set({ proximaAccion: e.target.value })} /></div>
           <div><label className={labelCls}>Fecha próxima acción</label><input type="date" className={inputCls} value={lead.fechaProximaAccion} onChange={(e) => set({ fechaProximaAccion: e.target.value })} /></div>
           <div className="sm:col-span-2"><label className={labelCls}>Notas</label><textarea rows={3} className={inputCls} value={lead.notas} onChange={(e) => set({ notas: e.target.value })} /></div>

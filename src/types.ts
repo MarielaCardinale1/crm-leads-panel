@@ -40,6 +40,8 @@ export interface LeadInput {
   proximaAccion: string;
   fechaProximaAccion: string; // YYYY-MM-DD
   notas: string;
+  /** Permiso que dio el negocio para escribirle por cada canal (fecha YYYY-MM-DD). */
+  consentimiento?: { dm?: string; whatsapp?: string; email?: string };
 }
 
 export interface Lead extends LeadInput {
@@ -86,4 +88,5 @@ export const EMPTY_LEAD: LeadInput = {
   proximaAccion: '',
   fechaProximaAccion: '',
   notas: '',
+  consentimiento: {},
 };

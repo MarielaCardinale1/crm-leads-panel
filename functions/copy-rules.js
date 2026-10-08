@@ -73,6 +73,11 @@ function checkLead(lead, canal) {
     faltantes.push("próxima acción o notas (qué hay que responder)");
   }
   if (faltantes.length) return { ok: false, faltantes, motivo: `Faltan datos para no inventar: ${faltantes.join(", ")}.` };
+  // Ley: mail y WhatsApp comerciales solo con consentimiento previo (LSSI / LGTel). Instagram y LinkedIn: primer DM sin vender.
+  const permiso = { email: "email", whatsapp: "whatsapp" }[canal];
+  if (permiso && !lead?.consentimiento?.[permiso]) {
+    return { ok: false, faltantes: [], motivo: `Sin permiso para ${canal === "email" ? "mail" : "WhatsApp"}: marcá en el lead cuándo te lo dio. Mientras tanto, usá DM de Instagram.` };
+  }
   return { ok: true, faltantes: [], motivo: "" };
 }
 

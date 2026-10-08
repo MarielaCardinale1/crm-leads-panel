@@ -82,7 +82,18 @@ function sanitizeLead(body) {
     proximaAccion: str(body.proximaAccion, 200),
     fechaProximaAccion: toDateKey(body.fechaProximaAccion) || "",
     notas: str(body.notas, 4000),
+    consentimiento: sanitizeConsentimiento(body.consentimiento),
   };
+}
+
+/** Permisos que dio el negocio para escribirle por cada canal: { dm, whatsapp, email } = "YYYY-MM-DD". */
+function sanitizeConsentimiento(c) {
+  const out = {};
+  for (const k of ["dm", "whatsapp", "email"]) {
+    const v = toDateKey(c?.[k]);
+    if (v) out[k] = v;
+  }
+  return out;
 }
 
 async function readLeads(uid) {
@@ -698,7 +709,12 @@ async function correrProspector(uid) {
       instagram: instagram || e.igDesdeMaps || "",
       telefono: pl.nationalPhoneNumber || "", web: tieneWeb ? web : "", direccion: pl.formattedAddress || "", maps: pl.googleMapsUri || "",
     };
-  })).filter(Boolean);
+  })).filter((c) => {
+    if (!c) return false;
+    if (prospector.tieneCanal(c)) return true;
+    descartes["sin Instagram (no hay canal permitido)"] = (descartes["sin Instagram (no hay canal permitido)"] || 0) + 1;
+    return false;
+  });
 
   // 4) Cargar en el panel y recordar los vistos (todos, para no volver a analizarlos)
   const nuevos = prospector.armarLeads(candidatos, hoy);

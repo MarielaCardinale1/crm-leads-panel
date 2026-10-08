@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { checkLead, buildPrompt, parseModelOutput, whatsappLink } = require("../copy-rules");
 
-const base = { nombre: "Laura", negocio: "Estudio Luz", oferta: "Ecommerce para creadores", estado: "nuevo" };
+const base = { nombre: "Laura", negocio: "Estudio Luz", oferta: "Ecommerce para creadores", estado: "nuevo", consentimiento: { email: "2026-10-01", whatsapp: "2026-10-01" } };
 
 test("Lead completo: se puede redactar", () => {
   assert.equal(checkLead(base, "email").ok, true);
@@ -89,4 +89,13 @@ test("LinkedIn: entra en la nota de conexión (300)", () => {
   assert.equal(checkLead(base, "linkedin").ok, true);
   const r = parseModelOutput(JSON.stringify({ mensaje: "c".repeat(500) }), "linkedin");
   assert.equal(r.mensaje.length, 300);
+});
+
+test("Mail y WhatsApp solo con consentimiento; DM de Instagram sí", () => {
+  const { checkLead } = require("../copy-rules");
+  const lead = { nombre: "Ana", oferta: "agenda online", estado: "nuevo" };
+  assert.equal(checkLead(lead, "whatsapp").ok, false);
+  assert.match(checkLead(lead, "email").motivo, /permiso/);
+  assert.equal(checkLead(lead, "instagram").ok, true);
+  assert.equal(checkLead({ ...lead, consentimiento: { whatsapp: "2026-10-08" } }, "whatsapp").ok, true);
 });

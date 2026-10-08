@@ -46,7 +46,7 @@ test("Descarta cerrados, cadenas y repetidos", () => {
 
 test("Leads: P1 primero, máx. 20, 5 por día hábil con fecha", () => {
   const base = { motivo: "m", ganchos: [], direccion: "", tipo: "peluquería", zona: "Getafe", placeId: "id" };
-  const cands = Array.from({ length: 25 }, (_, i) => ({ ...base, nombre: `N${i}`, prio: i % 2 ? "P2" : "P1", instagram: i % 3 ? `@n${i}` : "" }));
+  const cands = Array.from({ length: 25 }, (_, i) => ({ ...base, nombre: `N${i}`, prio: i % 2 ? "P2" : "P1", instagram: `@n${i}` }));
   const leads = p.armarLeads(cands, "2026-10-09"); // viernes
   assert.equal(leads.length, 20);
   assert.equal(leads[0].prioridadContacto, "P1");
@@ -54,4 +54,14 @@ test("Leads: P1 primero, máx. 20, 5 por día hábil con fecha", () => {
   assert.equal(leads[5].fechaProximaAccion, "2026-10-12"); // salta el finde
   assert.equal(leads[0].estado, "nuevo");
   assert.ok(leads.every((l) => l.notas.includes("Prospector")));
+});
+
+test("Sin Instagram no se carga (no hay canal permitido)", () => {
+  assert.equal(p.tieneCanal({ instagram: "" }), false);
+  assert.equal(p.tieneCanal({ instagram: "@salon.ana" }), true);
+});
+
+test("Los leads del Prospector entran sin consentimiento", () => {
+  const [l] = p.armarLeads([{ nombre: "A", prio: "P1", instagram: "@a", motivo: "m", ganchos: [], tipo: "barbería", zona: "Parla" }], "2026-10-12");
+  assert.deepEqual(l.consentimiento, {});
 });

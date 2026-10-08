@@ -123,6 +123,11 @@ function descartar(place, { vistos, nombresEnPanel, telefonosEnPanel, conteoNomb
   return null;
 }
 
+/** Sin Instagram no hay canal permitido (mail/WhatsApp en frío necesitan consentimiento). */
+function tieneCanal(candidato) {
+  return /^@[A-Za-z0-9._]{2,30}$/.test(candidato.instagram || "");
+}
+
 /** Días hábiles a partir de `desde` (incluido si es hábil). */
 function diasHabiles(desde, cantidad) {
   const out = [];
@@ -166,9 +171,10 @@ function armarLeads(candidatos, hoy) {
       pidioPrecio: false,
       pidioDemo: false,
       intencionExplicita: false,
-      proximaAccion: c.instagram ? `Calentar ${c.instagram} (seguir + 2 me gusta); DM al día siguiente` : "Buscar su Instagram y calentar el perfil",
+      proximaAccion: `Calentar ${c.instagram} (seguir + 2 me gusta); DM al día siguiente, sin link`,
       fechaProximaAccion: dias[Math.floor(i / POR_DIA)],
       notas,
+      consentimiento: {},
       prioridadContacto: c.prio,
       fuente: AGENT,
       placeId: c.placeId,
@@ -178,5 +184,5 @@ function armarLeads(candidatos, hoy) {
 
 module.exports = {
   AGENT, TIPOS, ZONAS, BUSQUEDAS_POR_SEMANA, MAX_LEADS_POR_SEMANA, POR_DIA,
-  busquedasDeLaSemana, analizarWeb, prioridad, ganchosDeFicha, motivoDe, ofertaPara, descartar, normalizar, diasHabiles, armarLeads,
+  busquedasDeLaSemana, analizarWeb, tieneCanal, prioridad, ganchosDeFicha, motivoDe, ofertaPara, descartar, normalizar, diasHabiles, armarLeads,
 };
