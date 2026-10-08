@@ -63,6 +63,7 @@ const PostCard: React.FC<{ post: Post; liConectado: boolean; onChanged: () => vo
       onChanged();
     } catch (e: any) {
       onToast(e.message, 'error');
+      onChanged(); // el error queda escrito en el post
     } finally {
       setBusy(null);
     }

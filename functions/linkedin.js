@@ -5,7 +5,18 @@
 const crypto = require("node:crypto");
 
 const API = "https://api.linkedin.com";
-const VERSION = "202509"; // LinkedIn-Version (YYYYMM)
+// LinkedIn-Version (YYYYMM): LinkedIn da de baja las versiones viejas cada mes.
+// Probamos desde el mes pasado hacia atrás y nos quedamos con la primera activa.
+function versionesCandidatas(now = new Date()) {
+  const out = [];
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    out.push(`${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
+  }
+  return out;
+}
+let versionActiva = null;
+const esVersionInactiva = (msg) => /version .* is not active|NONEXISTENT_VERSION|VERSION_MISSING/i.test(String(msg || ""));
 const SCOPES = "openid profile w_member_social";
 
 // ── Guardar el token cifrado (AES-256-GCM con clave derivada del Client Secret) ──
@@ -50,21 +61,31 @@ async function quienSoy(token) {
 }
 
 // ── Publicar ──
-function headers(token, extra = {}) {
-  return { Authorization: `Bearer ${token}`, "LinkedIn-Version": VERSION, "X-Restli-Protocol-Version": "2.0.0", "Content-Type": "application/json", ...extra };
+function headers(token, extra = {}, version = versionActiva || versionesCandidatas()[0]) {
+  return { Authorization: `Bearer ${token}`, "LinkedIn-Version": version, "X-Restli-Protocol-Version": "2.0.0", "Content-Type": "application/json", ...extra };
 }
 
 async function rest(token, path, body) {
-  const res = await fetch(`${API}/rest/${path}`, { method: "POST", headers: headers(token), body: JSON.stringify(body) });
-  const text = await res.text();
-  let d = {};
-  try {
-    d = text ? JSON.parse(text) : {};
-  } catch {
-    // sin JSON
+  const versiones = versionActiva ? [versionActiva] : versionesCandidatas();
+  let ultimo = "";
+  for (const v of versiones) {
+    const res = await fetch(`${API}/rest/${path}`, { method: "POST", headers: headers(token, {}, v), body: JSON.stringify(body) });
+    const text = await res.text();
+    let d = {};
+    try {
+      d = text ? JSON.parse(text) : {};
+    } catch {
+      // sin JSON
+    }
+    if (res.ok) {
+      versionActiva = v;
+      return { data: d, res };
+    }
+    ultimo = d.message || `LinkedIn respondió ${res.status}`;
+    if (!esVersionInactiva(ultimo)) break;
+    if (versionActiva) versionActiva = null; // se venció: volver a buscar
   }
-  if (!res.ok) throw new Error(d.message || `LinkedIn respondió ${res.status}`);
-  return { data: d, res };
+  throw new Error(ultimo);
 }
 
 async function subirImagen(token, owner, buffer, contentType) {
@@ -116,4 +137,4 @@ async function publicarPost(token, { author, commentary, mediaId }) {
   return { id, url: id ? `https://www.linkedin.com/feed/update/${id}/` : "" };
 }
 
-module.exports = { SCOPES, cifrar, descifrar, authUrl, canjearCodigo, quienSoy, subirImagen, subirVideo, publicarPost };
+module.exports = { versionesCandidatas, esVersionInactiva, SCOPES, cifrar, descifrar, authUrl, canjearCodigo, quienSoy, subirImagen, subirVideo, publicarPost };

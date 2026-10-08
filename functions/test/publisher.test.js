@@ -55,3 +55,11 @@ test("Fotos fuera de formato llevan bordes", () => {
   assert.equal(p.necesitaBordes(1080, 1920), true); // foto vertical del celular
   assert.equal(p.necesitaBordes(1080, 1080), false);
 });
+
+test("LinkedIn: versiones de API a probar (mes pasado hacia atrás)", () => {
+  const li = require("../linkedin");
+  assert.deepEqual(li.versionesCandidatas(new Date("2026-10-08T00:00:00Z")).slice(0, 3), ["202609", "202608", "202607"]);
+  assert.deepEqual(li.versionesCandidatas(new Date("2026-01-15T00:00:00Z"))[0], "202512");
+  assert.equal(li.esVersionInactiva("Requested version 20250901 is not active"), true);
+  assert.equal(li.esVersionInactiva("Invalid access token"), false);
+});
