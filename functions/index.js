@@ -10,6 +10,7 @@
  * - postsApi / postsMedia → ver, editar, aprobar posts y subir foto/video propio
  * - publicador / publicarAhora → microagente Publicador (CM 7b): sube a Instagram y LinkedIn lo aprobado
  * - linkedinConectar / linkedinCallback → conectar LinkedIn (dura 60 días)
+ * - prospectorSemanal / prospectorApi → agente 8 Prospector: busca negocios en Google Maps y los carga como leads
  */
 const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
@@ -586,3 +587,160 @@ exports.linkedinCallback = onRequest({ region: "us-central1", secrets: [LINKEDIN
     volver("error");
   }
 });
+
+// ── Agente 8: Prospector ─────────────────────────────────────────────────
+// Busca negocios de belleza en Google Maps, mira su web y carga los mejores
+// en el panel como "nuevo", repartidos 5 por día. No contacta a nadie.
+const prospector = require("./prospector-rules");
+const PROJECT_ID = process.env.GCLOUD_PROJECT || "gen-lang-client-0047460717";
+const PLACES_FIELDS = [
+  "places.id", "places.displayName", "places.formattedAddress", "places.nationalPhoneNumber", "places.websiteUri",
+  "places.rating", "places.userRatingCount", "places.businessStatus", "places.regularOpeningHours", "places.googleMapsUri",
+].join(",");
+
+async function googleToken() {
+  const { applicationDefault } = require("firebase-admin/app");
+  const { access_token: t } = await applicationDefault().getAccessToken();
+  return t;
+}
+
+async function buscarEnMaps(texto, token) {
+  const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "X-Goog-User-Project": PROJECT_ID, "X-Goog-FieldMask": PLACES_FIELDS, "Content-Type": "application/json" },
+    body: JSON.stringify({ textQuery: texto, languageCode: "es", regionCode: "ES", pageSize: 20 }),
+  });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(d.error?.message || `Google Maps respondió ${res.status}`);
+  return d.places || [];
+}
+
+async function leerWeb(url) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(url, { signal: ctrl.signal, redirect: "follow", headers: { "User-Agent": "Mozilla/5.0 (compatible; MarielaProspector/1.0)" } });
+    clearTimeout(t);
+    const html = (await res.text()).slice(0, 600000);
+    return { html, finalUrl: res.url || url };
+  } catch {
+    return { html: "", finalUrl: url };
+  }
+}
+
+/** Corre de a `n` tareas a la vez. */
+async function enParalelo(items, n, fn) {
+  const out = new Array(items.length);
+  let i = 0;
+  await Promise.all(Array.from({ length: n }, async () => {
+    while (i < items.length) {
+      const k = i++;
+      out[k] = await fn(items[k], k);
+    }
+  }));
+  return out;
+}
+
+async function correrProspector(uid) {
+  const hoy = todayKey();
+  const semana = posts.isoWeek(hoy);
+  const busquedas = prospector.busquedasDeLaSemana(semana);
+  const token = await googleToken();
+  const seenRef = db.collection("crmProspector").doc(uid).collection("vistos");
+
+  const [leads, seenSnap] = await Promise.all([readLeads(uid), seenRef.select().get()]);
+  const vistos = new Set(seenSnap.docs.map((d) => d.id));
+  const nombresEnPanel = new Set(leads.map((l) => prospector.normalizar(l.nombre)).concat(leads.map((l) => prospector.normalizar(l.negocio))));
+  const telefonosEnPanel = new Set(leads.map((l) => prospector.normalizar(l.contacto)).filter((t) => /^\d{9,}$/.test(t)));
+
+  // 1) Google Maps (máx. 6 búsquedas)
+  const encontrados = [];
+  for (const b of busquedas) {
+    const lugares = await buscarEnMaps(`${b.tipo} en ${b.zona}`, token);
+    lugares.forEach((pl) => encontrados.push({ ...b, place: pl }));
+  }
+  const conteoNombres = new Map();
+  encontrados.forEach(({ place }) => {
+    const k = prospector.normalizar(place.displayName?.text);
+    conteoNombres.set(k, (conteoNombres.get(k) || 0) + 1);
+  });
+
+  // 2) Descartes
+  const descartes = {};
+  const unicos = new Map();
+  for (const e of encontrados) {
+    const motivo = prospector.descartar(e.place, { vistos, nombresEnPanel, telefonosEnPanel, conteoNombres });
+    if (motivo || unicos.has(e.place.id)) {
+      descartes[motivo || "repetido"] = (descartes[motivo || "repetido"] || 0) + 1;
+      continue;
+    }
+    unicos.set(e.place.id, e);
+  }
+
+  // 3) Mirar la web de cada uno (gratis) y clasificar
+  const candidatos = (await enParalelo([...unicos.values()], 8, async (e) => {
+    const pl = e.place;
+    const web = pl.websiteUri || "";
+    const { html, finalUrl } = web ? await leerWeb(web) : { html: "", finalUrl: "" };
+    const { reservas, instagram } = prospector.analizarWeb(html, finalUrl || web);
+    const tieneWeb = !!web && !/instagram\.com|facebook\.com|booksy\.com|treatwell\.|fresha\.com|planity\.com/i.test(web);
+    const ganchos = prospector.ganchosDeFicha(pl);
+    if (!tieneWeb && /instagram\.com\//i.test(web)) e.igDesdeMaps = `@${web.split("instagram.com/")[1].split(/[/?]/)[0]}`;
+    const prio = prospector.prioridad({ tieneWeb, reservas: tieneWeb ? reservas : (reservas || null), ganchosFicha: ganchos });
+    if (!prio) {
+      descartes["ya tiene reservas propias y ficha completa"] = (descartes["ya tiene reservas propias y ficha completa"] || 0) + 1;
+      return null;
+    }
+    return {
+      placeId: pl.id, nombre: pl.displayName?.text || "", tipo: e.tipo, zona: e.zona, prio,
+      motivo: prospector.motivoDe({ tieneWeb, reservas }),
+      ganchos: tieneWeb ? ganchos : ["no tiene web", ...ganchos],
+      instagram: instagram || e.igDesdeMaps || "",
+      telefono: pl.nationalPhoneNumber || "", web: tieneWeb ? web : "", direccion: pl.formattedAddress || "", maps: pl.googleMapsUri || "",
+    };
+  })).filter(Boolean);
+
+  // 4) Cargar en el panel y recordar los vistos (todos, para no volver a analizarlos)
+  const nuevos = prospector.armarLeads(candidatos, hoy);
+  const now = Date.now();
+  const batch = db.batch();
+  nuevos.forEach((l) => batch.set(leadsRef(uid).doc(), { ...l, createdAt: now, updatedAt: now }));
+  [...unicos.keys()].forEach((id) => batch.set(seenRef.doc(id), { at: now }));
+  await batch.commit();
+
+  const resumen = {
+    semana, fecha: hoy, busquedas: busquedas.map((b) => `${b.tipo} en ${b.zona}`),
+    encontrados: encontrados.length, cargados: nuevos.length,
+    porPrioridad: nuevos.reduce((acc, l) => ({ ...acc, [l.prioridadContacto]: (acc[l.prioridadContacto] || 0) + 1 }), {}),
+    conInstagram: nuevos.filter((l) => l.contacto.startsWith("@")).length,
+    descartes, at: now,
+  };
+  await db.collection("crmProspector").doc(uid).set({ ultimaCorrida: resumen }, { merge: true });
+  logger.info(`[${prospector.AGENT}] ok`, resumen);
+  return resumen;
+}
+
+// Todos los lunes 7:30 (Madrid).
+exports.prospectorSemanal = onSchedule(
+  { schedule: "30 7 * * 1", timeZone: "Europe/Madrid", region: "us-central1", timeoutSeconds: 540, memory: "512MiB" },
+  async () => {
+    const usuarios = await db.collection("crmLeads").listDocuments();
+    for (const u of usuarios) {
+      try {
+        await correrProspector(u.id);
+      } catch (error) {
+        logger.error(`[${prospector.AGENT}] falló`, { uid: u.id, error: error?.message });
+      }
+    }
+  },
+);
+
+// Panel: ver la última corrida (GET) o buscar ahora (POST). Máx. una corrida manual por día.
+exports.prospectorApi = wrap(prospector.AGENT, async (req, res, user) => {
+  const ref = db.collection("crmProspector").doc(user.uid);
+  if (req.method === "GET") return res.json({ ultimaCorrida: (await ref.get()).data()?.ultimaCorrida || null });
+  if (req.method !== "POST") return res.status(405).json({ agent: prospector.AGENT, error: "Método no permitido." });
+  const ultima = (await ref.get()).data()?.ultimaCorrida;
+  if (ultima?.fecha === todayKey()) return res.status(429).json({ agent: prospector.AGENT, error: "Ya buscó hoy. Mañana de nuevo (así no se pasa del cupo gratis)." });
+  res.json(await correrProspector(user.uid));
+}, { timeoutSeconds: 540, memory: "512MiB" });

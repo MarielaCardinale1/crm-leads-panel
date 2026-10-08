@@ -124,3 +124,24 @@ export async function linkedinConnect(): Promise<void> {
 export async function makePin(id: string): Promise<{ ok: boolean }> {
   return call('pinterestPin', { method: 'POST', body: JSON.stringify({ id }) });
 }
+
+// ---- Agente 8: Prospector (busca negocios en Google Maps y los carga como leads) ----
+export interface CorridaProspector {
+  semana: number;
+  fecha: string;
+  busquedas: string[];
+  encontrados: number;
+  cargados: number;
+  porPrioridad: Record<string, number>;
+  conInstagram: number;
+  descartes: Record<string, number>;
+  at: number;
+}
+
+export async function fetchProspector(): Promise<{ ultimaCorrida: CorridaProspector | null }> {
+  return call('prospectorApi', { method: 'GET' });
+}
+
+export async function runProspector(): Promise<CorridaProspector> {
+  return call('prospectorApi', { method: 'POST', body: '{}' });
+}

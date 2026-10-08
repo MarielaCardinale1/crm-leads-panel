@@ -9,6 +9,7 @@ import { LeadForm } from './components/LeadForm';
 import { OpportunitiesPanel } from './components/OpportunitiesPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { PostsPanel } from './components/PostsPanel';
+import { ProspectorCard } from './components/ProspectorCard';
 import { EMPTY_LEAD, FilterState, Lead, LeadInput } from './types';
 import { fetchLeads, saveLead, deleteLead } from './services/leadService';
 import { exportLeadsToCSV } from './utils/csvExport';
@@ -287,6 +288,8 @@ export default function App() {
 
         {tab === 'redes' ? <PostsPanel onToast={showToast} /> : (<>
         <StatCards stats={stats} />
+
+        <ProspectorCard onLoaded={loadLeads} onToast={showToast} />
 
         {!isDataLoading && <OpportunitiesPanel leads={leads} onOpen={(l) => setEditing(toInput(l))} />}
 
