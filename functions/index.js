@@ -242,6 +242,12 @@ async function saveMedia(uid, name, buffer, contentType) {
   return { url, path: filePath };
 }
 
+/** Imagen vertical 2:3 para Pinterest (misma placa, otro formato). */
+async function armarImagenPin(uid, base, etiqueta, placa) {
+  const png = await renderPlaca({ etiqueta, titulo: placa.titulo, subtitulo: placa.subtitulo }, "pin");
+  return saveMedia(uid, `${base}-pin-${Date.now()}.png`, png, "image/png");
+}
+
 async function askOpenAI(system, user, maxTokens) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -278,12 +284,14 @@ exports.redactorPosts = wrap(posts.AGENT, async (req, res, user) => {
       if (!out.ok) throw new Error(out.motivo);
       const png = await renderPlaca({ etiqueta: slot.etiqueta, titulo: out.placa.titulo, subtitulo: out.placa.subtitulo });
       const media = await saveMedia(user.uid, `${slot.semana}-${slot.oferta.replace(/\s+/g, "-")}-placa.png`, png, "image/png");
+      const pin = out.pinterest ? await armarImagenPin(user.uid, `${slot.semana}-${slot.oferta.replace(/\s+/g, "-")}`, slot.etiqueta, out.placa) : null;
       const now = Date.now();
       const doc = await postsRef(user.uid).add({
         ...slot,
         placa: out.placa,
         instagram: out.instagram,
         linkedin: out.linkedin,
+        pinterest: out.pinterest ? { ...out.pinterest, ...pin } : null,
         redes: ["instagram", "linkedin"],
         media: { tipo: "placa", ...media },
         estado: "borrador",
@@ -317,7 +325,18 @@ exports.postsApi = wrap("postsApi", async (req, res, user) => {
     if (posts.ESTADOS_POST.includes(b.estado) && b.estado !== "publicado") patch.estado = b.estado; // "publicado" solo lo pone el Publicador
     if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(b.fechaPublicacion || "")) patch.fechaPublicacion = b.fechaPublicacion;
     if (Array.isArray(b.redes)) patch.redes = b.redes.filter((r) => ["instagram", "linkedin"].includes(r));
-    await ref.doc(id).set(patch, { merge: true });
+    if (b.pinterest && typeof b.pinterest === "object") {
+      const pin = posts.limpiarPin(b.pinterest);
+      if (pin) {
+        patch["pinterest.titulo"] = pin.titulo;
+        patch["pinterest.descripcion"] = pin.descripcion;
+      }
+    }
+    // Mientras Pinterest no apruebe la app, Mariela lo sube a mano y lo marca acá.
+    if (b.pinterestHecho === true) patch["publicacion.pinterest"] = { ok: true, manual: true, at: Date.now() };
+    const doc = await ref.doc(id).get();
+    if (!doc.exists) return res.status(404).json({ agent: "postsApi", error: "No encontré ese post." });
+    await ref.doc(id).update(patch);
     return res.json({ ok: true });
   }
   if (req.method === "DELETE") {
@@ -328,6 +347,25 @@ exports.postsApi = wrap("postsApi", async (req, res, user) => {
   }
   res.status(405).json({ agent: "postsApi", error: "Método no permitido." });
 });
+
+// Pinterest: arma (o rearma) el pin de un post: texto con IA + imagen vertical.
+exports.pinterestPin = wrap(posts.AGENT, async (req, res, user) => {
+  if (req.method !== "POST") return res.status(405).json({ agent: posts.AGENT, error: "Método no permitido." });
+  const id = String(req.body?.id || "").slice(0, 60);
+  const ref = postsRef(user.uid).doc(id);
+  const doc = id ? await ref.get() : null;
+  if (!doc?.exists) return res.status(404).json({ agent: posts.AGENT, error: "No encontré ese post." });
+  const post = doc.data();
+  let pin = post.pinterest?.titulo ? { titulo: post.pinterest.titulo, descripcion: post.pinterest.descripcion } : null;
+  if (!pin) {
+    const { system, user: msg } = posts.buildPinPrompt(post);
+    pin = posts.parsePin(await askOpenAI(system, msg, 500));
+    if (!pin) throw new Error("El modelo no devolvió un pin válido. Probá de nuevo.");
+  }
+  const img = await armarImagenPin(user.uid, id, post.etiqueta, post.placa || { titulo: pin.titulo, subtitulo: "" });
+  await ref.update({ pinterest: { ...pin, ...img }, updatedAt: Date.now() });
+  res.json({ ok: true, pinterest: { ...pin, ...img } });
+}, { secrets: [OPENAI_API_KEY], timeoutSeconds: 120, memory: "512MiB" });
 
 // Subir foto o video propio para reemplazar la placa de un post (máx. 30 MB).
 exports.postsMedia = wrap("postsMedia", async (req, res, user) => {

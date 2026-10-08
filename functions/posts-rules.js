@@ -73,17 +73,20 @@ function weeklyPlan(today) {
   });
 }
 
+const PIN_REGLA = "Pinterest funciona como buscador: pinterest.titulo de máximo 90 caracteres con la palabra clave al principio (ej. \"Agenda online para centros de estética: ...\"); pinterest.descripcion de 200 a 450 caracteres, natural, con 2-3 búsquedas reales que haría una dueña de salón en España, sin hashtags y sin el link (el link va aparte).";
+
 function buildPostPrompt(slot) {
   const facts = OFFER_FACTS[slot.oferta] || [];
   const system = [
     "Sos la community manager de Mariela Cardinale (negocios locales en España: estudios de belleza, peluquerías, centros de estética).",
-    "Escribís UN post para Instagram y LinkedIn. Mariela lo revisa antes de publicar.",
+    "Escribís UN post para Instagram, LinkedIn y Pinterest. Mariela lo revisa antes de publicar.",
     "Español de España (tú, \"cita\", \"reserva\", \"señal\"). Claro, cercano, sin frases de marketing vacías. Máximo 2 emojis por texto.",
     "Usá SOLO los hechos de la oferta que te paso. No inventes precios, cifras, porcentajes, testimonios, clientes ni resultados.",
     "Placa (la imagen): titulo de máximo 60 caracteres que enganche; subtitulo de máximo 90 caracteres o vacío.",
     "Instagram: máximo 1000 caracteres, primera línea que enganche, cierre con una llamada a la acción suave (escribir por DM o link en la bio) y 3 a 5 hashtags en español al final.",
     "LinkedIn: máximo 1200 caracteres, tono profesional pero humano, sin hashtags o como mucho 3, cerrá con el link de la oferta.",
-    "Respondé SOLO con JSON: {\"placa\":{\"titulo\":string,\"subtitulo\":string},\"instagram\":string,\"linkedin\":string}.",
+    PIN_REGLA,
+    "Respondé SOLO con JSON: {\"placa\":{\"titulo\":string,\"subtitulo\":string},\"instagram\":string,\"linkedin\":string,\"pinterest\":{\"titulo\":string,\"descripcion\":string}}.",
   ].join("\n");
   const user = JSON.stringify({
     oferta: slot.etiqueta,
@@ -112,9 +115,38 @@ function parsePost(raw) {
   const instagram = cut(data?.instagram, 2200); // límite real de Instagram
   const linkedin = cut(data?.linkedin, 3000); // límite real de LinkedIn
   if (!titulo || !instagram || !linkedin) return { ok: false, motivo: "Faltan partes del post (título, Instagram o LinkedIn)." };
-  return { ok: true, placa: { titulo, subtitulo: cut(data?.placa?.subtitulo, 100) }, instagram, linkedin };
+  return { ok: true, placa: { titulo, subtitulo: cut(data?.placa?.subtitulo, 100) }, instagram, linkedin, pinterest: limpiarPin(data?.pinterest) };
+}
+
+/** Pinterest: título ≤100 y descripción ≤500 (límites reales). null si falta. */
+function limpiarPin(pin) {
+  const titulo = cut(pin?.titulo, 100);
+  const descripcion = cut(String(pin?.descripcion || "").replace(/#[\p{L}\p{N}_]+/gu, "").replace(/\s{2,}/g, " "), 500);
+  return titulo && descripcion ? { titulo, descripcion } : null;
+}
+
+/** Prompt corto para armar solo el pin de un post que ya existe. */
+function buildPinPrompt(post) {
+  const facts = OFFER_FACTS[post.oferta] || [];
+  const system = [
+    "Sos la community manager de Mariela Cardinale (negocios locales en España: estudios de belleza, peluquerías, centros de estética).",
+    "Usá SOLO los hechos de la oferta. No inventes precios, cifras, testimonios ni resultados. Español de España.",
+    PIN_REGLA,
+    "Respondé SOLO con JSON: {\"titulo\":string,\"descripcion\":string}.",
+  ].join("\n");
+  const user = JSON.stringify({ oferta: post.etiqueta, angulo: post.angulo, textoDelPost: post.instagram, hechosDeLaOferta: facts });
+  return { system, user };
+}
+
+function parsePin(raw) {
+  try {
+    const text = String(raw || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+    return limpiarPin(JSON.parse(text));
+  } catch {
+    return null;
+  }
 }
 
 const ESTADOS_POST = ["borrador", "aprobado", "publicado", "descartado"];
 
-module.exports = { AGENT, OFERTAS, ANGULOS, ESTADOS_POST, weeklyPlan, nextMonday, isoWeek, buildPostPrompt, parsePost };
+module.exports = { AGENT, OFERTAS, ANGULOS, ESTADOS_POST, weeklyPlan, nextMonday, isoWeek, buildPostPrompt, parsePost, buildPinPrompt, parsePin, limpiarPin };

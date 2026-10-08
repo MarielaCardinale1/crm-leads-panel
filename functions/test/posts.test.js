@@ -42,3 +42,18 @@ test("La placa se genera como PNG", async () => {
   const png = await renderPlaca({ etiqueta: "Sitio web", titulo: "Tu web, clara y rápida", subtitulo: "" });
   assert.equal(png.subarray(1, 4).toString(), "PNG");
 });
+
+test("Pinterest: el post trae título y descripción sin hashtags, acotados", () => {
+  const r = parsePost(JSON.stringify({ placa: { titulo: "t" }, instagram: "ig", linkedin: "li", pinterest: { titulo: "x".repeat(150), descripcion: "Agenda online #salon para tu centro" } }));
+  assert.equal(r.pinterest.titulo.length, 100);
+  assert.equal(r.pinterest.descripcion.includes("#"), false);
+  const sinPin = parsePost(JSON.stringify({ placa: { titulo: "t" }, instagram: "ig", linkedin: "li" }));
+  assert.equal(sinPin.ok, true);
+  assert.equal(sinPin.pinterest, null);
+});
+
+test("La placa de Pinterest sale vertical 1000x1500", async () => {
+  const png = await renderPlaca({ etiqueta: "Agenda online", titulo: "Reservas sin llamadas", subtitulo: "" }, "pin");
+  assert.equal(png.readUInt32BE(16), 1000);
+  assert.equal(png.readUInt32BE(20), 1500);
+});

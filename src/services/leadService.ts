@@ -75,7 +75,8 @@ export interface Post {
   redes: ('instagram' | 'linkedin')[];
   media: { tipo: 'placa' | 'foto' | 'video'; url: string; path: string };
   estado: EstadoPost;
-  publicacion?: { instagram?: Publicacion; linkedin?: Publicacion };
+  publicacion?: { instagram?: Publicacion; linkedin?: Publicacion; pinterest?: Publicacion & { manual?: boolean } };
+  pinterest?: { titulo: string; descripcion: string; url?: string; path?: string } | null;
 }
 
 export async function generateWeek(): Promise<{ semana: string; creados: number; yaExistian: number; fallos: string[] }> {
@@ -86,7 +87,7 @@ export async function fetchPosts(): Promise<{ posts: Post[] }> {
   return call('postsApi', { method: 'GET' });
 }
 
-export async function updatePost(id: string, patch: Partial<Pick<Post, 'instagram' | 'linkedin' | 'estado' | 'fechaPublicacion' | 'redes'>>): Promise<{ ok: boolean }> {
+export async function updatePost(id: string, patch: Partial<Pick<Post, 'instagram' | 'linkedin' | 'estado' | 'fechaPublicacion' | 'redes'>> & { pinterest?: { titulo: string; descripcion: string }; pinterestHecho?: boolean }): Promise<{ ok: boolean }> {
   return call('postsApi', { method: 'POST', body: JSON.stringify({ id, ...patch }) });
 }
 
@@ -117,4 +118,9 @@ export async function linkedinStatus(): Promise<{ conectado: boolean; dias: numb
 export async function linkedinConnect(): Promise<void> {
   const { url } = await call<{ url: string }>('linkedinConectar', { method: 'POST', body: '{}' });
   window.location.href = url;
+}
+
+/** Pinterest: arma el pin (texto + imagen vertical) de un post que todavía no lo tiene. */
+export async function makePin(id: string): Promise<{ ok: boolean }> {
+  return call('pinterestPin', { method: 'POST', body: JSON.stringify({ id }) });
 }

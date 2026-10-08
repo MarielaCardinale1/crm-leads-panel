@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Sparkles, Upload, Check, X, Instagram, Linkedin, Copy, RotateCcw, Loader2, Send, ExternalLink, AlertTriangle } from 'lucide-react';
-import { Post, EstadoPost, fetchPosts, generateWeek, updatePost, uploadPostMedia, publishNow, linkedinStatus, linkedinConnect, Publicacion, MAX_MEDIA_MB } from '../services/leadService';
+import { Sparkles, Upload, Check, X, Instagram, Linkedin, Copy, RotateCcw, Loader2, Send, ExternalLink, AlertTriangle, Pin, Download } from 'lucide-react';
+import { Post, EstadoPost, fetchPosts, generateWeek, updatePost, uploadPostMedia, publishNow, makePin, linkedinStatus, linkedinConnect, Publicacion, MAX_MEDIA_MB } from '../services/leadService';
 
 interface Props {
   onToast: (text: string, type?: 'success' | 'info' | 'error') => void;
@@ -41,6 +41,87 @@ const EstadoRed: React.FC<{ red: string; pub?: Publicacion; elegida?: boolean; s
     );
   if (sinConexion) return <p className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300"><Icon className="w-4 h-4" /> {red} sin conectar: no sale solo.</p>;
   return null;
+};
+
+/** Pinterest: hasta que aprueben la app, se sube a mano (copiar, pegar, subir imagen). */
+const PinBloque: React.FC<{
+  post: Post;
+  editable: boolean;
+  busy: string | null;
+  run: (key: string, fn: () => Promise<unknown>, ok: string) => Promise<void>;
+  copy: (t: string, red: string) => Promise<void>;
+}> = ({ post, editable, busy, run, copy }) => {
+  const pin = post.pinterest;
+  const [titulo, setTitulo] = useState(pin?.titulo || '');
+  const [desc, setDesc] = useState(pin?.descripcion || '');
+  useEffect(() => {
+    setTitulo(pin?.titulo || '');
+    setDesc(pin?.descripcion || '');
+  }, [pin?.titulo, pin?.descripcion]);
+  const hecho = post.publicacion?.pinterest?.ok;
+  const dirty = !!pin && (titulo !== pin.titulo || desc !== pin.descripcion);
+
+  const bajar = async () => {
+    if (!pin?.url) return;
+    try {
+      const blob = await (await fetch(pin.url)).blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `pin-${post.etiqueta.toLowerCase().replace(/\s+/g, '-')}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      window.open(pin.url, '_blank');
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-[#F5C9A8]/60 dark:border-[#3D2E22] p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <Pin className="w-4 h-4 text-[#E8610A]" />
+        <span className="text-xs font-semibold text-[#1a1a1a] dark:text-[#F5EBE1]">Pinterest</span>
+        {hecho ? <span className="text-[11px] text-sky-700 dark:text-sky-300">subido ✓</span> : <span className="text-[11px] text-[#999]">a mano hasta que Pinterest apruebe la app</span>}
+      </div>
+      {!pin ? (
+        editable && (
+          <button disabled={!!busy} onClick={() => run('pin', () => makePin(post.id), 'Pin armado')}
+            className={`${btn} border border-[#F5C9A8] dark:border-[#3D2E22] text-[#1a1a1a] dark:text-[#F5EBE1]`}>
+            {busy === 'pin' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pin className="w-4 h-4" />} Armar pin
+          </button>
+        )
+      ) : (
+        <div className="grid sm:grid-cols-[110px_1fr] gap-3">
+          {pin.url ? <img src={pin.url} alt={pin.titulo} className="w-full rounded-lg border border-[#F5C9A8]/60 aspect-[2/3] object-cover" /> : <div />}
+          <div className="space-y-2">
+            <div className="flex gap-2 items-center">
+              <input className={area} maxLength={100} value={titulo} disabled={!editable} onChange={(e) => setTitulo(e.target.value)} />
+              <button onClick={() => copy(titulo, 'Pinterest (título)')} className="text-[#666] hover:text-[#E8610A]" title="Copiar título"><Copy className="w-4 h-4" /></button>
+            </div>
+            <div className="flex gap-2 items-start">
+              <textarea className={area} rows={3} maxLength={500} value={desc} disabled={!editable} onChange={(e) => setDesc(e.target.value)} />
+              <button onClick={() => copy(desc, 'Pinterest (descripción)')} className="text-[#666] hover:text-[#E8610A] mt-2" title="Copiar descripción"><Copy className="w-4 h-4" /></button>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-[#666] dark:text-[#99897A]">
+              Link: <span className="truncate">{post.url}</span>
+              <button onClick={() => copy(post.url, 'Pinterest (link)')} className="hover:text-[#E8610A]" title="Copiar link"><Copy className="w-3.5 h-3.5" /></button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {pin.url && <button onClick={bajar} className={`${btn} border border-[#E0E0E0] dark:border-[#3D2E22]`}><Download className="w-4 h-4" /> Bajar imagen</button>}
+              <a href="https://www.pinterest.com/pin-creation-tool/" target="_blank" rel="noreferrer" className={`${btn} border border-[#E0E0E0] dark:border-[#3D2E22]`}><ExternalLink className="w-4 h-4" /> Abrir Pinterest</a>
+              {dirty && (
+                <button disabled={!!busy} onClick={() => run('pinsave', () => updatePost(post.id, { pinterest: { titulo, descripcion: desc } }), 'Pin guardado')}
+                  className={`${btn} bg-[#1a1a1a] text-white`}>Guardar pin</button>
+              )}
+              {!hecho && (
+                <button disabled={!!busy} onClick={() => run('pinok', () => updatePost(post.id, { pinterestHecho: true }), 'Marcado como subido a Pinterest')}
+                  className={`${btn} bg-[#E60023] text-white hover:bg-[#c2001d]`}><Check className="w-4 h-4" /> Ya lo subí</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const PostCard: React.FC<{ post: Post; liConectado: boolean; onChanged: () => void; onToast: Props['onToast'] }> = ({ post, liConectado, onChanged, onToast }) => {
@@ -137,6 +218,8 @@ const PostCard: React.FC<{ post: Post; liConectado: boolean; onChanged: () => vo
             </div>
             <textarea className={area} rows={7} maxLength={3000} value={li} disabled={!editable} onChange={(e) => setLi(e.target.value)} />
           </div>
+
+          <PinBloque post={post} editable={post.estado !== 'descartado'} busy={busy} run={run} copy={copy} />
 
           <div className="space-y-1">
             <EstadoRed red="Instagram" pub={post.publicacion?.instagram} elegida={post.redes?.includes('instagram')} />

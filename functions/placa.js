@@ -27,9 +27,9 @@ function titleSize(titulo) {
   return 56;
 }
 
-function tree({ etiqueta, titulo, subtitulo }) {
+function tree({ etiqueta, titulo, subtitulo }, w = W, hgt = H) {
   return h("div", {
-    width: W, height: H, display: "flex", flexDirection: "column", justifyContent: "space-between",
+    width: w, height: hgt, display: "flex", flexDirection: "column", justifyContent: "space-between",
     backgroundColor: COLORS.fondo, padding: "96px 88px", fontFamily: "Poppins",
   }, [
     h("div", { display: "flex", flexDirection: "column" }, [
@@ -49,11 +49,15 @@ function tree({ etiqueta, titulo, subtitulo }) {
   ]);
 }
 
-/** Devuelve un Buffer PNG. */
-async function renderPlaca(datos) {
+// Formatos: Instagram/LinkedIn 4:5 y Pinterest 2:3 (vertical, el que mejor rinde ahí).
+const FORMATOS = { feed: [W, H], pin: [1000, 1500] };
+
+/** Devuelve un Buffer PNG. formato: "feed" (1080x1350) o "pin" (1000x1500). */
+async function renderPlaca(datos, formato = "feed") {
+  const [w, hgt] = FORMATOS[formato] || FORMATOS.feed;
   const { default: satori } = await import("satori");
-  const svg = await satori(tree(datos), { width: W, height: H, fonts: FONTS });
-  return new Resvg(svg, { fitTo: { mode: "width", value: W } }).render().asPng();
+  const svg = await satori(tree(datos, w, hgt), { width: w, height: hgt, fonts: FONTS });
+  return new Resvg(svg, { fitTo: { mode: "width", value: w } }).render().asPng();
 }
 
-module.exports = { renderPlaca, W, H };
+module.exports = { renderPlaca, FORMATOS, W, H };
