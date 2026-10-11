@@ -16,6 +16,25 @@ async function get(url) {
   return d;
 }
 
+const CAMPOS = "name,id,access_token,instagram_business_account{id,username}";
+
+/** Paginas de las empresas (portfolios) a las que el usuario tiene acceso: las que no salen en /me/accounts. */
+async function paginasDeEmpresas(token) {
+  const out = [];
+  try {
+    const biz = await get(`${G}/me/businesses?fields=id,name&limit=100&access_token=${encodeURIComponent(token)}`);
+    for (const b of biz.data || []) {
+      for (const edge of ["owned_pages", "client_pages"]) {
+        try {
+          const r = await get(`${G}/${b.id}/${edge}?fields=${CAMPOS}&limit=100&access_token=${encodeURIComponent(token)}`);
+          for (const p of r.data || []) out.push({ ...p, empresa: b.name });
+        } catch { /* sin permiso sobre esta empresa: se sigue con las demas */ }
+      }
+    }
+  } catch { /* el token no tiene business_management */ }
+  return out;
+}
+
 (async () => {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   console.log(`Datos de la app "${APP_ID_HINT}" (Configuracion > Basica) y la clave del Explorer.\n`);
@@ -25,11 +44,16 @@ async function get(url) {
   rl.close();
   console.log("\nCanjeando por una clave larga...");
   const long = await get(`${G}/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${secret}&fb_exchange_token=${encodeURIComponent(short)}`);
-  const pages = await get(`${G}/me/accounts?fields=name,id,access_token,instagram_business_account{id,username}&limit=100&access_token=${encodeURIComponent(long.access_token)}`);
-  const todas = pages.data || [];
+  const pages = await get(`${G}/me/accounts?fields=${CAMPOS}&limit=100&access_token=${encodeURIComponent(long.access_token)}`);
+  const todas = [...(pages.data || [])];
+  for (const p of await paginasDeEmpresas(long.access_token)) {
+    const ya = todas.find((x) => x.id === p.id);
+    if (!ya) todas.push(p);
+    else if (!ya.empresa) ya.empresa = p.empresa;
+  }
   console.log("\nPaginas que ve este token:");
   if (!todas.length) console.log("  (ninguna)");
-  todas.forEach((p, i) => console.log(`  ${i + 1}) ${p.name} | ID de pagina: ${p.id} | Instagram: ${p.instagram_business_account ? "@" + p.instagram_business_account.username : "NO vinculado"}`));
+  todas.forEach((p, i) => console.log(`  ${i + 1}) ${p.name} | ID de pagina: ${p.id} | Instagram: ${p.instagram_business_account ? "@" + p.instagram_business_account.username : "NO vinculado"}${p.empresa ? ` | Empresa: ${p.empresa}` : ""}${p.access_token ? "" : " | SIN ACCESO para publicar"}`));
   const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
   const directo = (await rl2.question("\n4) Si tu pagina NO esta en la lista, pega aca su ID de Facebook. Si esta, apreta Enter: ")).trim();
   let page;
@@ -39,6 +63,7 @@ async function get(url) {
   } else {
     const n = Number((await rl2.question(`5) Elegi el numero de la pagina (1-${todas.length}): `)).trim());
     page = todas[n - 1];
+    if (page && !page.access_token) throw new Error(`El token no tiene acceso de publicacion a "${page.name}". En Meta Business Suite > Configuracion > Usuarios > Personas, asignate esa pagina con control total, y genera el token de nuevo.`);
   }
   if (!page) throw new Error("Numero invalido. No se guardo nada.");
   if (!page.instagram_business_account) throw new Error(`La pagina "${page.name}" no tiene un Instagram profesional vinculado. Vincularlo en Facebook y repetir. No se guardo nada.`);
