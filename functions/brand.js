@@ -31,11 +31,13 @@ const DEFAULTS = {
 };
 
 function loadProject() {
+  // BRAND_PROYECTO: ruta de otro project.json (lo usan los tests para probar los perfiles de /proyectos).
+  const archivo = process.env.BRAND_PROYECTO || path.join(__dirname, "project.json");
   try {
-    return JSON.parse(fs.readFileSync(path.join(__dirname, "project.json"), "utf8"));
+    return JSON.parse(fs.readFileSync(archivo, "utf8"));
   } catch (e) {
     if (e.code === "ENOENT") return {};
-    throw new Error(`functions/project.json no es un JSON válido: ${e.message}`);
+    throw new Error(`${archivo} no es un JSON válido: ${e.message}`);
   }
 }
 
