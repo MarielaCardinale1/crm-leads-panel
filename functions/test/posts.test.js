@@ -1,3 +1,4 @@
+process.env.BRAND_SIN_PROYECTO = "1"; // configuración original, no la de esta carpeta
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { weeklyPlan, nextMonday, buildPostPrompt, parsePost } = require("../posts-rules");
