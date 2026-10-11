@@ -39,7 +39,8 @@ function loadProject() {
   }
 }
 
-const project = loadProject();
+// Los tests usan siempre la configuración original, sin importar el project.json de la carpeta.
+const project = process.env.BRAND_SIN_PROYECTO === "1" ? {} : loadProject();
 const brand = { ...DEFAULTS, ...(project.marca || {}) };
 brand.horario = { ...DEFAULTS.horario, ...(project.marca?.horario || {}) };
 if (project.hechos) brand.hechos = project.hechos;
