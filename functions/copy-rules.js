@@ -10,11 +10,13 @@
  *  - arma las instrucciones con datos REALES de la oferta (nada inventado),
  *  - valida y limpia lo que devuelve el modelo.
  */
+const { brand } = require("./brand");
+
 const AGENT = "copyComercial";
 const CANALES = ["email", "whatsapp", "instagram", "linkedin"];
 
 // Lo único que el mensaje puede afirmar de cada oferta. Si no está acá, no se promete.
-const OFFER_FACTS = {
+const DEFAULT_FACTS = {
   "ecommerce para creadores": [
     "Mariela arma la tienda online de merch (remeras, tazas, etc. con el diseño de la creadora) con impresión bajo demanda.",
     "La creadora no compra stock ni paga costo fijo: el proveedor imprime y envía cada pedido cuando se vende.",
@@ -38,7 +40,7 @@ const OFFER_FACTS = {
 };
 
 // Nombres alternativos con los que se puede cargar la oferta en un lead.
-const OFFER_ALIASES = {
+const DEFAULT_ALIASES = {
   "gestor de turnos": "agenda online",
   "tienda merch": "ecommerce para creadores",
   "ficha de google business": "ficha de google",
@@ -47,6 +49,9 @@ const OFFER_ALIASES = {
   "diseño web": "sitio web",
   "diseño web + ficha de google": "sitio web",
 };
+
+const OFFER_FACTS = brand.hechos || DEFAULT_FACTS;
+const OFFER_ALIASES = brand.alias || (brand.hechos ? {} : DEFAULT_ALIASES);
 
 const OBJETIVOS = {
   nuevo: "Primer contacto. Presentarse en una línea, mostrar que conocés su trabajo (solo con lo que dicen las notas) y proponer UNA cosa concreta y fácil de aceptar.",
@@ -90,14 +95,14 @@ function factsFor(oferta) {
 function buildPrompt(lead, canal) {
   const facts = factsFor(lead.oferta);
   const FORMATOS = {
-    email: "Email: devolvé un asunto de máximo 60 caracteres y un cuerpo de máximo 120 palabras, con saludo y firma \"Mariela\".",
-    whatsapp: "WhatsApp: sin asunto, máximo 450 caracteres, tono cercano, sin saludos largos, firma \"Mariela\".",
+    email: `Email: devolvé un asunto de máximo 60 caracteres y un cuerpo de máximo 120 palabras, con saludo y firma \"${brand.firma}\".`,
+    whatsapp: `WhatsApp: sin asunto, máximo 450 caracteres, tono cercano, sin saludos largos, firma \"${brand.firma}\".`,
     linkedin: "Mensaje de LinkedIn: sin asunto, máximo 300 caracteres (entra en la nota de una solicitud de conexión), tono profesional pero cercano, sin links en el primer contacto, terminá con una pregunta corta.",
     instagram: "DM de Instagram: sin asunto, máximo 350 caracteres, tono cercano y natural, sin firma formal. En un primer contacto NO pongas links (Instagram filtra los DMs con links); terminá con una pregunta corta.",
   };
   const formato = FORMATOS[canal];
   const system = [
-    "Sos el redactor comercial de Mariela Cardinale. Escribís UN borrador; Mariela lo revisa y lo manda a mano.",
+    `Sos el redactor comercial de ${brand.nombre}. Escribís UN borrador; ${brand.firma} lo revisa y lo manda a mano.`,
     "Español de España (tú, \"cita\", \"reserva\", \"señal\"), cálido y directo. Nada de frases de marketing vacías ni emojis en exceso (máximo uno).",
     "Usá SOLO los datos del lead y los hechos de la oferta que te paso. No inventes precios, cifras, resultados, clientes, plazos ni detalles personales del lead.",
     facts ? "" : "La oferta no tiene hechos cargados: no describas características ni precios, solo proponé conversar.",

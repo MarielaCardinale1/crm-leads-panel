@@ -19,6 +19,7 @@ const { AGENT, ESTADOS, parseActiveOffers, scoreLead, buildDailyOpportunities, t
 const followups = require("./followup-rules");
 const copy = require("./copy-rules");
 const posts = require("./posts-rules");
+const { brand, feature } = require("./brand");
 const { renderPlaca } = require("./placa");
 const { randomUUID } = require("node:crypto");
 const { defineSecret } = require("firebase-functions/params");
@@ -410,8 +411,8 @@ const IG_PAGE_TOKEN = defineSecret("IG_PAGE_TOKEN");
 const LINKEDIN_CLIENT_ID = defineSecret("LINKEDIN_CLIENT_ID");
 const LINKEDIN_CLIENT_SECRET = defineSecret("LINKEDIN_CLIENT_SECRET");
 const li = require("./linkedin");
-const LI_REDIRECT = "https://us-central1-gen-lang-client-0047460717.cloudfunctions.net/linkedinCallback";
-const PANEL_URL = "https://marielacardinale-leads.web.app";
+const LI_REDIRECT = `https://us-central1-${process.env.GCLOUD_PROJECT || "gen-lang-client-0047460717"}.cloudfunctions.net/linkedinCallback`;
+const PANEL_URL = brand.panelUrl;
 const liRef = (uid) => db.collection("crmLinkedin").doc(uid);
 const PUB_SECRETS = [IG_PAGE_TOKEN, LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET];
 
@@ -438,7 +439,7 @@ async function publicarEnLinkedin(post, conexion) {
     return { ok: false, intentos, error: error.message, at: Date.now() };
   }
 }
-const IG_USER_ID = process.env.IG_USER_ID || "17841458234882016"; // @mariela.cardinale (no es secreto)
+const IG_USER_ID = process.env.IG_USER_ID || brand.igUserId; // id de la cuenta de Instagram (no es secreto)
 const LOCK_MS = 6 * 60 * 1000;
 
 /** Instagram solo acepta JPG y dentro de 4:5 … 1.91:1. Convierte (y agrega bordes) si hace falta. */
@@ -760,3 +761,14 @@ exports.prospectorApi = wrap(prospector.AGENT, async (req, res, user) => {
   if (ultima?.fecha === todayKey()) return res.status(429).json({ agent: prospector.AGENT, error: "Ya buscó hoy. Mañana de nuevo (así no se pasa del cupo gratis)." });
   res.json(await correrProspector(user.uid));
 }, { timeoutSeconds: 540, memory: "512MiB" });
+
+// ── Módulos apagados (FEATURES en functions/.env): no se despliegan ni crean tareas programadas ──
+const MODULOS = {
+  copy: ["copyComercial"],
+  seguimientos: ["seguimientos"],
+  redes: ["redactorPosts", "postsApi", "pinterestPin", "postsMedia", "publicador", "publicarAhora", "linkedinConectar", "linkedinCallback"],
+  prospector: ["prospectorSemanal", "prospectorApi"],
+};
+for (const [modulo, nombres] of Object.entries(MODULOS)) {
+  if (!feature(modulo)) for (const n of nombres) delete exports[n];
+}

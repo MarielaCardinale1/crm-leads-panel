@@ -1,0 +1,19 @@
+{
+  "marca": {
+    "nombre": "Nombre Apellido",
+    "firma": "Nombre",
+    "web": "minegocio.com",
+    "panelUrl": "https://mi-proyecto-leads.web.app",
+    "igUserId": "",
+    "publico": "a quién le vende este proyecto (se usa en los prompts de redes)"
+  },
+  "hechos": {
+    "mi oferta": [
+      "Solo afirmaciones reales y verificables. El redactor no puede decir nada que no esté acá."
+    ]
+  },
+  "alias": { "otro nombre de la oferta": "mi oferta" },
+  "ofertasRedes": [
+    { "key": "mi oferta", "etiqueta": "Mi oferta", "url": "https://minegocio.com/oferta" }
+  ]
+}

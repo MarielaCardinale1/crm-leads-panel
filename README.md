@@ -66,6 +66,16 @@ Botón "Redactar mensaje" en cada lead guardado. Las reglas fijas deciden si hay
 3. `.firebaserc` (copiar `.firebaserc.example`).
 4. En Firebase → Authentication → Settings → Dominios autorizados: agregar el dominio del panel.
 
+## Otro proyecto (mismo código, otro Firebase)
+
+Cada proyecto tiene su propio Firebase y sus propios datos. Se usa el mismo repo, clonado una vez por proyecto:
+
+1. Crear el proyecto en Firebase (Auth con Google, Firestore, Hosting, Functions) y el secreto `OPENAI_API_KEY`.
+2. Completar `.env`, `functions/.env` y `.firebaserc` con los datos de ese proyecto y los emails permitidos.
+3. Copiar `functions/project.example.json` a `functions/project.json`: nombre, firma, web, URL del panel y los **hechos de cada oferta** (el redactor solo puede afirmar lo que esté ahí). Sin este archivo queda la configuración de Mariela.
+4. Elegir módulos con `FEATURES` (functions/.env) y `VITE_FEATURES` (.env). Siempre están CRM, scoring y seguimientos; opcionales: `copy`, `redes` (Community Manager + Publicador), `prospector` (solo sirve para negocios de belleza). Ej.: `FEATURES="copy"`.
+5. `firebase use <proyecto>` y publicar. Las mejoras de código se traen con `git pull` en cada clon.
+
 ## Uso
 
 ```
