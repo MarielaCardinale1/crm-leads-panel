@@ -1,5 +1,8 @@
 {
   "_comentario": "Perfil de ViajaHoyTips. Copiar a functions/project.json en la carpeta de ese proyecto. Datos verificados el 07/09/2026 en las páginas oficiales de cada parque (content/permisos-parques.json de viajahoytips). Los otros 5 parques (Gran Cañón, Great Smoky Mountains, Joshua Tree, Acadia, Olympic) se suman después.",
+  "features": [
+    "redes"
+  ],
   "marca": {
     "nombre": "ViajaHoyTips",
     "firma": "Mariela",

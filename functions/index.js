@@ -25,7 +25,8 @@ const { randomUUID } = require("node:crypto");
 const { defineSecret } = require("firebase-functions/params");
 
 // Misma clave que usa Jefe IA (secreto del proyecto). Solo la usa copyComercial.
-const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+// Solo se declaran las claves que algún módulo activo usa: Firebase exige que existan todas las declaradas.
+const OPENAI_API_KEY = feature("copy") || feature("redes") ? defineSecret("OPENAI_API_KEY") : null;
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -167,7 +168,7 @@ exports.leadScoring = wrap(AGENT, async (req, res, user) => {
 // Microagente Seguimientos: lee tareas WAITING del tablero + leads en espera.
 // GET = vista previa (no marca nada). POST = avisa y guarda qué se avisó (lo usa Jefe IA),
 // así el mismo seguimiento no se repite si nada cambió.
-exports.seguimientos = wrap(followups.AGENT, async (req, res, user) => {
+exports.seguimientos = feature("seguimientos") && wrap(followups.AGENT, async (req, res, user) => {
   if (!["GET", "POST"].includes(req.method)) return res.status(405).json({ agent: followups.AGENT, error: "Método no permitido." });
   const [boardSnap, leads, memSnap] = await Promise.all([
     db.collection("crmDashboardState").doc(user.uid).get(),
@@ -186,7 +187,7 @@ exports.seguimientos = wrap(followups.AGENT, async (req, res, user) => {
 });
 
 // Microagente Copy Comercial: redacta UN borrador para UN lead. No envía, no guarda, no cambia el lead.
-exports.copyComercial = wrap(copy.AGENT, async (req, res, user) => {
+exports.copyComercial = feature("copy") && wrap(copy.AGENT, async (req, res, user) => {
   if (req.method !== "POST") return res.status(405).json({ agent: copy.AGENT, error: "Método no permitido." });
   const leadId = String(req.body?.leadId || "").slice(0, 60);
   const canal = String(req.body?.canal || "");
@@ -282,7 +283,7 @@ async function askOpenAI(system, user, maxTokens) {
 }
 
 // Arma los 3 posts de la semana que viene. Si ya existen, no los duplica.
-exports.redactorPosts = wrap(posts.AGENT, async (req, res, user) => {
+exports.redactorPosts = feature("redes") && wrap(posts.AGENT, async (req, res, user) => {
   if (req.method !== "POST") return res.status(405).json({ agent: posts.AGENT, error: "Método no permitido." });
   const plan = posts.weeklyPlan(todayKey());
   const existing = await postsRef(user.uid).where("semana", "==", plan[0].semana).get();
@@ -322,7 +323,7 @@ exports.redactorPosts = wrap(posts.AGENT, async (req, res, user) => {
 }, { secrets: [OPENAI_API_KEY], timeoutSeconds: 180, memory: "512MiB" });
 
 // Ver / editar / aprobar / borrar posts. No publica nada.
-exports.postsApi = wrap("postsApi", async (req, res, user) => {
+exports.postsApi = feature("redes") && wrap("postsApi", async (req, res, user) => {
   const ref = postsRef(user.uid);
   if (req.method === "GET") {
     const snap = await ref.orderBy("fechaPublicacion", "desc").limit(60).get();
@@ -362,7 +363,7 @@ exports.postsApi = wrap("postsApi", async (req, res, user) => {
 });
 
 // Pinterest: arma (o rearma) el pin de un post: texto con IA + imagen vertical.
-exports.pinterestPin = wrap(posts.AGENT, async (req, res, user) => {
+exports.pinterestPin = feature("redes") && wrap(posts.AGENT, async (req, res, user) => {
   if (req.method !== "POST") return res.status(405).json({ agent: posts.AGENT, error: "Método no permitido." });
   const id = String(req.body?.id || "").slice(0, 60);
   const ref = postsRef(user.uid).doc(id);
@@ -381,7 +382,7 @@ exports.pinterestPin = wrap(posts.AGENT, async (req, res, user) => {
 }, { secrets: [OPENAI_API_KEY], timeoutSeconds: 120, memory: "512MiB" });
 
 // Subir foto o video propio para reemplazar la placa de un post (máx. 30 MB).
-exports.postsMedia = wrap("postsMedia", async (req, res, user) => {
+exports.postsMedia = feature("redes") && wrap("postsMedia", async (req, res, user) => {
   if (req.method !== "POST") return res.status(405).json({ agent: "postsMedia", error: "Método no permitido." });
   const id = String(req.query.id || "").slice(0, 60);
   const type = String(req.get("Content-Type") || "");
@@ -407,16 +408,16 @@ exports.postsMedia = wrap("postsMedia", async (req, res, user) => {
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const publisher = require("./publisher-rules");
 const ig = require("./instagram");
-const IG_PAGE_TOKEN = defineSecret("IG_PAGE_TOKEN");
+const IG_PAGE_TOKEN = feature("redes") ? defineSecret("IG_PAGE_TOKEN") : null;
 // Sin LinkedIn en el perfil no se declaran sus claves: Firebase exige que existan todas las que declara el código.
-const CON_LINKEDIN = brand.redes.includes("linkedin");
+const CON_LINKEDIN = feature("redes") && brand.redes.includes("linkedin");
 const LINKEDIN_CLIENT_ID = CON_LINKEDIN ? defineSecret("LINKEDIN_CLIENT_ID") : null;
 const LINKEDIN_CLIENT_SECRET = CON_LINKEDIN ? defineSecret("LINKEDIN_CLIENT_SECRET") : null;
 const li = require("./linkedin");
 const LI_REDIRECT = `https://us-central1-${process.env.GCLOUD_PROJECT || "gen-lang-client-0047460717"}.cloudfunctions.net/linkedinCallback`;
 const PANEL_URL = brand.panelUrl;
 const liRef = (uid) => db.collection("crmLinkedin").doc(uid);
-const PUB_SECRETS = CON_LINKEDIN ? [IG_PAGE_TOKEN, LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET] : [IG_PAGE_TOKEN];
+const PUB_SECRETS = [IG_PAGE_TOKEN, LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET].filter(Boolean);
 
 /** Conexión de LinkedIn vigente (token descifrado) o null. */
 async function linkedinConexion(uid) {
@@ -536,7 +537,7 @@ async function correrPublicador(uid, soloId = null) {
 }
 
 // Cada 15 minutos, hora de Madrid.
-exports.publicador = onSchedule(
+exports.publicador = feature("redes") && onSchedule(
   { schedule: "every 15 minutes", timeZone: "Europe/Madrid", region: "us-central1", secrets: PUB_SECRETS, timeoutSeconds: 540, memory: "1GiB" },
   async () => {
     const usuarios = await db.collection("crmPosts").listDocuments();
@@ -552,7 +553,7 @@ exports.publicador = onSchedule(
 );
 
 // "Publicar ya": pone la fecha en este momento y publica ese post (solo si está aprobado).
-exports.publicarAhora = wrap(publisher.AGENT, async (req, res, user) => {
+exports.publicarAhora = feature("redes") && wrap(publisher.AGENT, async (req, res, user) => {
   if (req.method !== "POST") return res.status(405).json({ agent: publisher.AGENT, error: "Método no permitido." });
   const id = String(req.body?.id || "").slice(0, 60);
   const ref = postsRef(user.uid).doc(id);
@@ -742,7 +743,7 @@ async function correrProspector(uid) {
 }
 
 // Todos los lunes 7:30 (Madrid).
-exports.prospectorSemanal = onSchedule(
+exports.prospectorSemanal = feature("prospector") && onSchedule(
   { schedule: "30 7 * * 1", timeZone: "Europe/Madrid", region: "us-central1", timeoutSeconds: 540, memory: "512MiB" },
   async () => {
     const usuarios = await db.collection("crmLeads").listDocuments();
@@ -757,7 +758,7 @@ exports.prospectorSemanal = onSchedule(
 );
 
 // Panel: ver la última corrida (GET) o buscar ahora (POST). Máx. una corrida manual por día.
-exports.prospectorApi = wrap(prospector.AGENT, async (req, res, user) => {
+exports.prospectorApi = feature("prospector") && wrap(prospector.AGENT, async (req, res, user) => {
   const ref = db.collection("crmProspector").doc(user.uid);
   if (req.method === "GET") return res.json({ ultimaCorrida: (await ref.get()).data()?.ultimaCorrida || null });
   if (req.method !== "POST") return res.status(405).json({ agent: prospector.AGENT, error: "Método no permitido." });
@@ -765,14 +766,3 @@ exports.prospectorApi = wrap(prospector.AGENT, async (req, res, user) => {
   if (ultima?.fecha === todayKey()) return res.status(429).json({ agent: prospector.AGENT, error: "Ya buscó hoy. Mañana de nuevo (así no se pasa del cupo gratis)." });
   res.json(await correrProspector(user.uid));
 }, { timeoutSeconds: 540, memory: "512MiB" });
-
-// ── Módulos apagados (FEATURES en functions/.env): no se despliegan ni crean tareas programadas ──
-const MODULOS = {
-  copy: ["copyComercial"],
-  seguimientos: ["seguimientos"],
-  redes: ["redactorPosts", "postsApi", "pinterestPin", "postsMedia", "publicador", "publicarAhora", "linkedinConectar", "linkedinCallback"],
-  prospector: ["prospectorSemanal", "prospectorApi"],
-};
-for (const [modulo, nombres] of Object.entries(MODULOS)) {
-  if (!feature(modulo)) for (const n of nombres) delete exports[n];
-}

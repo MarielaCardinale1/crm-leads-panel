@@ -2,7 +2,7 @@
  * Configuración por proyecto (marca, ofertas y módulos activos).
  * Sin archivo ni variables, queda la configuración original (Mariela).
  * Para otro proyecto: copiar functions/project.example.json a functions/project.json
- * y poner FEATURES en functions/.env. Ver README, sección "Otro proyecto".
+ * y elegir los módulos con "features". Ver README, sección "Otro proyecto".
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -49,11 +49,14 @@ if (project.hechos) brand.hechos = project.hechos;
 if (project.alias) brand.alias = project.alias;
 if (project.ofertasRedes) brand.ofertasRedes = project.ofertasRedes;
 
-// Módulos opcionales. FEATURES="copy,seguimientos" (vacío = todos, como hasta ahora).
-// "leads" y "scoring" siempre están. Opciones: copy, seguimientos, redes, prospector.
+// Módulos opcionales. Vacío = todos. "leads" y "scoring" siempre están. Opciones: copy, seguimientos, redes, prospector.
+// Se define con "features" en project.json (recomendado) o con FEATURES="copy,redes" en functions/.env.
+// OJO: algunas versiones de firebase-tools no pasan el .env al decidir qué funciones publicar, por eso project.json.
 const ALL = ["copy", "seguimientos", "redes", "prospector"];
-const raw = String(process.env.FEATURES || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-const enabled = raw.length ? raw : ALL;
+const lista = (v) => (Array.isArray(v) ? v : String(v || "").split(",")).map((s) => String(s).trim().toLowerCase()).filter(Boolean);
+const desdeEnv = lista(process.env.FEATURES);
+const desdeProyecto = lista(project.features);
+const enabled = desdeEnv.length ? desdeEnv : desdeProyecto.length ? desdeProyecto : ALL;
 const feature = (name) => enabled.includes(name);
 
 module.exports = { brand, feature, ALL };
