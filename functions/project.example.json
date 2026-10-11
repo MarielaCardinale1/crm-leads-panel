@@ -1,4 +1,8 @@
 {
+  "features": [
+    "copy",
+    "redes"
+  ],
   "marca": {
     "nombre": "Nombre Apellido",
     "firma": "Nombre",
@@ -12,8 +16,14 @@
       "Solo afirmaciones reales y verificables. El redactor no puede decir nada que no esté acá."
     ]
   },
-  "alias": { "otro nombre de la oferta": "mi oferta" },
+  "alias": {
+    "otro nombre de la oferta": "mi oferta"
+  },
   "ofertasRedes": [
-    { "key": "mi oferta", "etiqueta": "Mi oferta", "url": "https://minegocio.com/oferta" }
+    {
+      "key": "mi oferta",
+      "etiqueta": "Mi oferta",
+      "url": "https://minegocio.com/oferta"
+    }
   ]
 }

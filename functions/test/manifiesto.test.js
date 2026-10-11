@@ -20,8 +20,8 @@ function manifiesto(env) {
   return { funciones: Object.keys(m.endpoints).sort(), secretos: (m.params || []).filter((p) => p.type === "secret").map((p) => p.name).sort() };
 }
 
-test("Perfil sin LinkedIn: no declara sus claves ni sus funciones", { skip: !fs.existsSync(bin) }, () => {
-  const m = manifiesto({ BRAND_PROYECTO: path.join(__dirname, "..", "..", "proyectos", "viajahoytips", "project.json"), FEATURES: "redes" });
+test("Perfil sin LinkedIn: no declara sus claves ni sus funciones (módulos desde project.json, sin FEATURES en el .env)", { skip: !fs.existsSync(bin) }, () => {
+  const m = manifiesto({ BRAND_PROYECTO: path.join(__dirname, "..", "..", "proyectos", "viajahoytips", "project.json"), FEATURES: "" });
   assert.deepEqual(m.secretos, ["IG_PAGE_TOKEN", "OPENAI_API_KEY"]);
   assert.ok(m.funciones.includes("redactorPosts") && m.funciones.includes("publicador"));
   assert.ok(!m.funciones.some((f) => /linkedin|prospector|copyComercial|seguimientos/i.test(f)));
