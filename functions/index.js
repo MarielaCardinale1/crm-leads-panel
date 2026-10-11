@@ -414,7 +414,9 @@ const li = require("./linkedin");
 const LI_REDIRECT = `https://us-central1-${process.env.GCLOUD_PROJECT || "gen-lang-client-0047460717"}.cloudfunctions.net/linkedinCallback`;
 const PANEL_URL = brand.panelUrl;
 const liRef = (uid) => db.collection("crmLinkedin").doc(uid);
-const PUB_SECRETS = [IG_PAGE_TOKEN, LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET];
+// Sin LinkedIn en la configuración del proyecto, no se piden sus claves.
+const CON_LINKEDIN = brand.redes.includes("linkedin");
+const PUB_SECRETS = CON_LINKEDIN ? [IG_PAGE_TOKEN, LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET] : [IG_PAGE_TOKEN];
 
 /** Conexión de LinkedIn vigente (token descifrado) o null. */
 async function linkedinConexion(uid) {
@@ -771,4 +773,8 @@ const MODULOS = {
 };
 for (const [modulo, nombres] of Object.entries(MODULOS)) {
   if (!feature(modulo)) for (const n of nombres) delete exports[n];
+}
+if (!CON_LINKEDIN) {
+  delete exports.linkedinConectar;
+  delete exports.linkedinCallback;
 }
