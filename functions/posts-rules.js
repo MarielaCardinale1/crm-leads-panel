@@ -8,11 +8,12 @@
  * qué ángulo, cuándo se publicaría, y validar/limpiar lo que redacta el modelo.
  */
 const { OFFER_FACTS } = require("./copy-rules");
+const { brand } = require("./brand");
 
 const AGENT = "redactorPosts";
 
 // Lo que vende el Community Manager (decisión 07/10). Un post por oferta, por semana.
-const OFERTAS = [
+const OFERTAS = brand.ofertasRedes || [
   { key: "agenda online", etiqueta: "Agenda online", url: "https://www.marielacardinale.com/gestion-de-turnos" },
   { key: "ficha de google", etiqueta: "Ficha de Google", url: "https://www.marielacardinale.com/diseno-web-gbp" },
   { key: "sitio web", etiqueta: "Sitio web", url: "https://www.marielacardinale.com/diseno-web-gbp" },
@@ -78,8 +79,8 @@ const PIN_REGLA = "Pinterest funciona como buscador: pinterest.titulo de máximo
 function buildPostPrompt(slot) {
   const facts = OFFER_FACTS[slot.oferta] || [];
   const system = [
-    "Sos la community manager de Mariela Cardinale (negocios locales en España: estudios de belleza, peluquerías, centros de estética).",
-    "Escribís UN post para Instagram, LinkedIn y Pinterest. Mariela lo revisa antes de publicar.",
+    `Sos la community manager de ${brand.nombre} (${brand.publico}).`,
+    `Escribís UN post para Instagram, LinkedIn y Pinterest. ${brand.firma} lo revisa antes de publicar.`,
     "Español de España (tú, \"cita\", \"reserva\", \"señal\"). Claro, cercano, sin frases de marketing vacías. Máximo 2 emojis por texto.",
     "Usá SOLO los hechos de la oferta que te paso. No inventes precios, cifras, porcentajes, testimonios, clientes ni resultados.",
     "Placa (la imagen): titulo de máximo 60 caracteres que enganche; subtitulo de máximo 90 caracteres o vacío.",
@@ -129,7 +130,7 @@ function limpiarPin(pin) {
 function buildPinPrompt(post) {
   const facts = OFFER_FACTS[post.oferta] || [];
   const system = [
-    "Sos la community manager de Mariela Cardinale (negocios locales en España: estudios de belleza, peluquerías, centros de estética).",
+    `Sos la community manager de ${brand.nombre} (${brand.publico}).`,
     "Usá SOLO los hechos de la oferta. No inventes precios, cifras, testimonios ni resultados. Español de España.",
     PIN_REGLA,
     "Respondé SOLO con JSON: {\"titulo\":string,\"descripcion\":string}.",

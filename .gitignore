@@ -11,3 +11,5 @@ coverage/
 functions/.env*
 !functions/.env.example
 .firebaserc
+
+functions/project.json

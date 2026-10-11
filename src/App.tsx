@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
-import { auth, googleProvider, isAuthorizedEmail, isFirebaseConfigured, getMissingEnvVars } from './firebase-config';
+import { auth, googleProvider, isAuthorizedEmail, isFirebaseConfigured, getMissingEnvVars, hasFeature } from './firebase-config';
 import { Header } from './components/Header';
 import { StatCards, LeadStats } from './components/StatCards';
 import { FiltersBar } from './components/FiltersBar';
@@ -278,7 +278,7 @@ export default function App() {
         )}
 
         <div className="inline-flex p-1 rounded-xl bg-white dark:bg-[#1C1814] border border-[#E0E0E0] dark:border-[#2E2721]">
-          {(['leads', 'redes'] as const).map((t) => (
+          {(['leads', 'redes'] as const).filter((t) => t === 'leads' || hasFeature('redes')).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold font-heading transition-colors ${tab === t ? 'bg-[#E8610A] text-white' : 'text-[#666] dark:text-[#99897A] hover:text-[#1a1a1a] dark:hover:text-[#F5EBE1]'}`}>
               {t === 'leads' ? 'Leads' : 'Redes'}
@@ -286,10 +286,10 @@ export default function App() {
           ))}
         </div>
 
-        {tab === 'redes' ? <PostsPanel onToast={showToast} /> : (<>
+        {tab === 'redes' && hasFeature('redes') ? <PostsPanel onToast={showToast} /> : (<>
         <StatCards stats={stats} />
 
-        <ProspectorCard onLoaded={loadLeads} onToast={showToast} />
+        {hasFeature('prospector') && <ProspectorCard onLoaded={loadLeads} onToast={showToast} />}
 
         {!isDataLoading && <OpportunitiesPanel leads={leads} onOpen={(l) => setEditing(toInput(l))} />}
 

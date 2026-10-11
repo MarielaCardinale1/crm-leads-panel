@@ -5,6 +5,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { Resvg } = require("@resvg/resvg-js");
+const { brand } = require("./brand");
 
 const W = 1080;
 const H = 1350;
@@ -43,8 +44,8 @@ function tree({ etiqueta, titulo, subtitulo }, w = W, hgt = H) {
         : h("div", { display: "flex" }, []),
     ]),
     h("div", { display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `3px solid ${COLORS.borde}`, paddingTop: 36 }, [
-      h("div", { display: "flex", fontSize: 34, fontWeight: 700, color: COLORS.texto }, "Mariela Cardinale"),
-      h("div", { display: "flex", fontSize: 30, fontWeight: 500, color: COLORS.naranja }, "marielacardinale.com"),
+      h("div", { display: "flex", fontSize: 34, fontWeight: 700, color: COLORS.texto }, brand.nombre),
+      h("div", { display: "flex", fontSize: 30, fontWeight: 500, color: COLORS.naranja }, brand.web),
     ]),
   ]);
 }
