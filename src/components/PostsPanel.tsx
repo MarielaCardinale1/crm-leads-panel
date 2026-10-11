@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Sparkles, Upload, Check, X, Instagram, Linkedin, Copy, RotateCcw, Loader2, Send, ExternalLink, AlertTriangle, Pin, Download } from 'lucide-react';
 import { Post, EstadoPost, fetchPosts, generateWeek, updatePost, uploadPostMedia, publishNow, makePin, linkedinStatus, linkedinConnect, Publicacion, MAX_MEDIA_MB } from '../services/leadService';
+import { hasFeature } from '../firebase-config';
 
 interface Props {
   onToast: (text: string, type?: 'success' | 'info' | 'error') => void;
@@ -209,7 +210,7 @@ const PostCard: React.FC<{ post: Post; liConectado: boolean; onChanged: () => vo
             </div>
             <textarea className={area} rows={7} maxLength={2200} value={ig} disabled={!editable} onChange={(e) => setIg(e.target.value)} />
           </div>
-          <div>
+          {post.redes?.includes('linkedin') && <div>
             <div className="flex items-center gap-2 mb-1">
               <Linkedin className="w-4 h-4 text-[#E8610A]" />
               <span className="text-xs font-semibold text-[#1a1a1a] dark:text-[#F5EBE1]">LinkedIn</span>
@@ -217,13 +218,13 @@ const PostCard: React.FC<{ post: Post; liConectado: boolean; onChanged: () => vo
               <button onClick={() => copy(li, 'LinkedIn')} className="ml-auto text-[#666] hover:text-[#E8610A]" title="Copiar"><Copy className="w-4 h-4" /></button>
             </div>
             <textarea className={area} rows={7} maxLength={3000} value={li} disabled={!editable} onChange={(e) => setLi(e.target.value)} />
-          </div>
+          </div>}
 
           <PinBloque post={post} editable={post.estado !== 'descartado'} busy={busy} run={run} copy={copy} />
 
           <div className="space-y-1">
             <EstadoRed red="Instagram" pub={post.publicacion?.instagram} elegida={post.redes?.includes('instagram')} />
-            <EstadoRed red="LinkedIn" pub={post.publicacion?.linkedin} elegida={post.redes?.includes('linkedin')} sinConexion={!liConectado} />
+            {post.redes?.includes('linkedin') && <EstadoRed red="LinkedIn" pub={post.publicacion?.linkedin} elegida sinConexion={!liConectado} />}
             {post.estado === 'aprobado' && <p className="text-xs text-emerald-700 dark:text-emerald-300">Sale solo el {fechaLinda(post.fechaPublicacion)}.</p>}
           </div>
 
@@ -280,7 +281,7 @@ export const PostsPanel: React.FC<Props> = ({ onToast }) => {
   const [conectando, setConectando] = useState(false);
 
   useEffect(() => {
-    linkedinStatus().then(setLiEstado).catch(() => setLiEstado(null));
+    if (hasFeature('linkedin')) linkedinStatus().then(setLiEstado).catch(() => setLiEstado(null));
   }, []);
 
   const conectarLi = async () => {
@@ -339,7 +340,7 @@ export const PostsPanel: React.FC<Props> = ({ onToast }) => {
         </button>
       </div>
 
-      <div className={`${card} p-4 flex flex-wrap items-center gap-3`}>
+      {hasFeature('linkedin') && <div className={`${card} p-4 flex flex-wrap items-center gap-3`}>
         <Linkedin className="w-5 h-5 text-[#E8610A]" />
         <span className="text-xs sm:text-sm text-[#1a1a1a] dark:text-[#F5EBE1] flex-1">
           {!liEstado ? 'LinkedIn: revisando conexión…'
@@ -353,7 +354,7 @@ export const PostsPanel: React.FC<Props> = ({ onToast }) => {
             {liEstado.conectado ? 'Reconectar LinkedIn' : 'Conectar LinkedIn'}
           </button>
         )}
-      </div>
+      </div>}
 
       {error && <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-2xl p-4 text-rose-900 dark:text-rose-200 text-sm">{error}</div>}
 

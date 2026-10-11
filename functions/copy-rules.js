@@ -103,7 +103,7 @@ function buildPrompt(lead, canal) {
   const formato = FORMATOS[canal];
   const system = [
     `Sos el redactor comercial de ${brand.nombre}. Escribís UN borrador; ${brand.firma} lo revisa y lo manda a mano.`,
-    "Español de España (tú, \"cita\", \"reserva\", \"señal\"), cálido y directo. Nada de frases de marketing vacías ni emojis en exceso (máximo uno).",
+    `${brand.tono}, cálido y directo. Nada de frases de marketing vacías ni emojis en exceso (máximo uno).`,
     "Usá SOLO los datos del lead y los hechos de la oferta que te paso. No inventes precios, cifras, resultados, clientes, plazos ni detalles personales del lead.",
     facts ? "" : "La oferta no tiene hechos cargados: no describas características ni precios, solo proponé conversar.",
     "Un solo pedido concreto al final (una pregunta fácil de responder). No presiones ni uses urgencia falsa.",

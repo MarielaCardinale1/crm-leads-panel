@@ -15,6 +15,15 @@ const DEFAULTS = {
   igUserId: "17841458234882016",
   // Frase para los prompts de redes: a quién le vende el proyecto.
   publico: "negocios locales en España: estudios de belleza, peluquerías, centros de estética",
+  // Cómo habla el redactor (copy y posts).
+  tono: 'Español de España (tú, "cita", "reserva", "señal")',
+  // Redes donde publica el Community Manager (instagram, linkedin). Define qué textos redacta.
+  redes: ["instagram", "linkedin"],
+  // Cuándo salen los posts: días de la semana (1 = lunes), hora y zona horaria.
+  horario: { dias: [1, 3, 5], hora: 10, zona: "Europe/Madrid" },
+  // null = usar los textos originales de posts-rules.js
+  angulos: null,
+  pinRegla: null,
   // null = usar los textos originales de copy-rules.js / posts-rules.js
   hechos: null,
   alias: null,
@@ -32,6 +41,7 @@ function loadProject() {
 
 const project = loadProject();
 const brand = { ...DEFAULTS, ...(project.marca || {}) };
+brand.horario = { ...DEFAULTS.horario, ...(project.marca?.horario || {}) };
 if (project.hechos) brand.hechos = project.hechos;
 if (project.alias) brand.alias = project.alias;
 if (project.ofertasRedes) brand.ofertasRedes = project.ofertasRedes;

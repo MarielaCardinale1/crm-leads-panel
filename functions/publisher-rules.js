@@ -8,6 +8,8 @@
  *
  * Esta parte es determinística (se prueba con node --test).
  */
+const { brand } = require("./brand");
+
 const AGENT = "publicador";
 const REDES = ["instagram", "linkedin"]; // LinkedIn solo si está conectado (se pasa en `activas`)
 const MAX_INTENTOS = 3;
@@ -15,7 +17,7 @@ const IG_RATIO_MIN = 4 / 5; // Instagram acepta fotos entre 4:5 …
 const IG_RATIO_MAX = 1.91; // … y 1.91:1
 
 /** "YYYY-MM-DD HH:MM" en la zona dada. */
-function nowKey(date = new Date(), timeZone = "Europe/Madrid") {
+function nowKey(date = new Date(), timeZone = brand.horario.zona) {
   const p = Object.fromEntries(
     new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
       .formatToParts(date)
