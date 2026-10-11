@@ -408,14 +408,14 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const publisher = require("./publisher-rules");
 const ig = require("./instagram");
 const IG_PAGE_TOKEN = defineSecret("IG_PAGE_TOKEN");
-const LINKEDIN_CLIENT_ID = defineSecret("LINKEDIN_CLIENT_ID");
-const LINKEDIN_CLIENT_SECRET = defineSecret("LINKEDIN_CLIENT_SECRET");
+// Sin LinkedIn en el perfil no se declaran sus claves: Firebase exige que existan todas las que declara el código.
+const CON_LINKEDIN = brand.redes.includes("linkedin");
+const LINKEDIN_CLIENT_ID = CON_LINKEDIN ? defineSecret("LINKEDIN_CLIENT_ID") : null;
+const LINKEDIN_CLIENT_SECRET = CON_LINKEDIN ? defineSecret("LINKEDIN_CLIENT_SECRET") : null;
 const li = require("./linkedin");
 const LI_REDIRECT = `https://us-central1-${process.env.GCLOUD_PROJECT || "gen-lang-client-0047460717"}.cloudfunctions.net/linkedinCallback`;
 const PANEL_URL = brand.panelUrl;
 const liRef = (uid) => db.collection("crmLinkedin").doc(uid);
-// Sin LinkedIn en la configuración del proyecto, no se piden sus claves.
-const CON_LINKEDIN = brand.redes.includes("linkedin");
 const PUB_SECRETS = CON_LINKEDIN ? [IG_PAGE_TOKEN, LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET] : [IG_PAGE_TOKEN];
 
 /** Conexión de LinkedIn vigente (token descifrado) o null. */
@@ -497,7 +497,7 @@ async function publicarEnInstagram(uid, postRef, post, token) {
 async function correrPublicador(uid, soloId = null) {
   const token = IG_PAGE_TOKEN.value();
   const now = publisher.nowKey();
-  const conexionLi = await linkedinConexion(uid).catch(() => null);
+  const conexionLi = CON_LINKEDIN ? await linkedinConexion(uid).catch(() => null) : null;
   const activas = conexionLi ? ["instagram", "linkedin"] : ["instagram"];
   const snap = await postsRef(uid).where("estado", "==", "aprobado").get();
   const resultados = [];
@@ -567,6 +567,7 @@ exports.publicarAhora = wrap(publisher.AGENT, async (req, res, user) => {
   res.json({ ok: redes.every((x) => x.ok), instagram: out.instagram, linkedin: out.linkedin });
 }, { secrets: PUB_SECRETS, timeoutSeconds: 540, memory: "1GiB" });
 
+if (CON_LINKEDIN) {
 // ── LinkedIn: conectar (dura 60 días) ────────────────────────────────────
 exports.linkedinConectar = wrap("linkedin", async (req, res, user) => {
   if (req.method === "GET") {
@@ -601,6 +602,7 @@ exports.linkedinCallback = onRequest({ region: "us-central1", secrets: [LINKEDIN
     volver("error");
   }
 });
+}
 
 // ── Agente 8: Prospector ─────────────────────────────────────────────────
 // Busca negocios de belleza en Google Maps, mira su web y carga los mejores
@@ -773,8 +775,4 @@ const MODULOS = {
 };
 for (const [modulo, nombres] of Object.entries(MODULOS)) {
   if (!feature(modulo)) for (const n of nombres) delete exports[n];
-}
-if (!CON_LINKEDIN) {
-  delete exports.linkedinConectar;
-  delete exports.linkedinCallback;
 }
