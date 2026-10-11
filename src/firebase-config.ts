@@ -29,9 +29,9 @@ export function isAuthorizedEmail(email: string | null | undefined): boolean {
   return AUTHORIZED_ADMIN_EMAILS.includes(String(email || '').trim().toLowerCase());
 }
 
-// Módulos visibles: VITE_FEATURES="copy,redes,prospector" (vacío = todos). Tiene que coincidir con FEATURES de functions/.env.
+// Módulos visibles: VITE_FEATURES="copy,redes,prospector,linkedin" (vacío = todos). Tiene que coincidir con FEATURES de functions/.env.
 const ENABLED_FEATURES = String(env.VITE_FEATURES || '').split(',').map((f) => f.trim().toLowerCase()).filter(Boolean);
-export function hasFeature(name: 'copy' | 'redes' | 'prospector'): boolean {
+export function hasFeature(name: 'copy' | 'redes' | 'prospector' | 'linkedin'): boolean {
   return ENABLED_FEATURES.length === 0 || ENABLED_FEATURES.includes(name);
 }
 

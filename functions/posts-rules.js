@@ -20,7 +20,7 @@ const OFERTAS = brand.ofertasRedes || [
 ];
 
 // Ángulos que rotan semana a semana para no repetir el mismo post.
-const ANGULOS = [
+const ANGULOS = brand.angulos || [
   "Un dolor concreto del día a día del negocio y cómo se resuelve.",
   "Error común que le cuesta clientas a un negocio local, y el arreglo.",
   "Antes y después: cómo cambia la rutina con esto.",
@@ -29,9 +29,9 @@ const ANGULOS = [
   "Checklist corto (3 puntos) para revisar hoy.",
 ];
 
-// Lunes, miércoles y viernes a las 10:00 (hora de Madrid).
-const DIAS = [1, 3, 5];
-const HORA = 10;
+// Por defecto lunes, miércoles y viernes a las 10:00 (hora de Madrid). Se cambia en project.json.
+const DIAS = brand.horario.dias;
+const HORA = brand.horario.hora;
 
 function pad(n) {
   return String(n).padStart(2, "0");
@@ -55,11 +55,13 @@ function nextMonday(today) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Plan de la semana: 3 posts, uno por oferta, con fecha y ángulo. */
+/** Plan de la semana: un post por día de publicación, con fecha y ángulo. Si hay más temas que días, rotan. */
 function weeklyPlan(today) {
   const lunes = nextMonday(today);
   const semana = isoWeek(lunes);
-  return OFERTAS.map((oferta, i) => {
+  const n = DIAS.length;
+  const temas = OFERTAS.length <= n ? OFERTAS : Array.from({ length: n }, (_, k) => OFERTAS[(semana * n + k) % OFERTAS.length]);
+  return temas.map((oferta, i) => {
     const d = new Date(`${lunes}T12:00:00Z`);
     d.setUTCDate(d.getUTCDate() + (DIAS[i] - 1));
     const fecha = d.toISOString().slice(0, 10);
@@ -74,21 +76,23 @@ function weeklyPlan(today) {
   });
 }
 
-const PIN_REGLA = "Pinterest funciona como buscador: pinterest.titulo de máximo 90 caracteres con la palabra clave al principio (ej. \"Agenda online para centros de estética: ...\"); pinterest.descripcion de 200 a 450 caracteres, natural, con 2-3 búsquedas reales que haría una dueña de salón en España, sin hashtags y sin el link (el link va aparte).";
+const PIN_REGLA = brand.pinRegla || "Pinterest funciona como buscador: pinterest.titulo de máximo 90 caracteres con la palabra clave al principio (ej. \"Agenda online para centros de estética: ...\"); pinterest.descripcion de 200 a 450 caracteres, natural, con 2-3 búsquedas reales que haría una dueña de salón en España, sin hashtags y sin el link (el link va aparte).";
+
+const CON_LINKEDIN = brand.redes.includes("linkedin");
 
 function buildPostPrompt(slot) {
   const facts = OFFER_FACTS[slot.oferta] || [];
   const system = [
     `Sos la community manager de ${brand.nombre} (${brand.publico}).`,
-    `Escribís UN post para Instagram, LinkedIn y Pinterest. ${brand.firma} lo revisa antes de publicar.`,
-    "Español de España (tú, \"cita\", \"reserva\", \"señal\"). Claro, cercano, sin frases de marketing vacías. Máximo 2 emojis por texto.",
+    `Escribís UN post para Instagram${CON_LINKEDIN ? ", LinkedIn" : ""} y Pinterest. ${brand.firma} lo revisa antes de publicar.`,
+    `${brand.tono}. Claro, cercano, sin frases de marketing vacías. Máximo 2 emojis por texto.`,
     "Usá SOLO los hechos de la oferta que te paso. No inventes precios, cifras, porcentajes, testimonios, clientes ni resultados.",
     "Placa (la imagen): titulo de máximo 60 caracteres que enganche; subtitulo de máximo 90 caracteres o vacío.",
     "Instagram: máximo 1000 caracteres, primera línea que enganche, cierre con una llamada a la acción suave (escribir por DM o link en la bio) y 3 a 5 hashtags en español al final.",
-    "LinkedIn: máximo 1200 caracteres, tono profesional pero humano, sin hashtags o como mucho 3, cerrá con el link de la oferta.",
+    CON_LINKEDIN ? "LinkedIn: máximo 1200 caracteres, tono profesional pero humano, sin hashtags o como mucho 3, cerrá con el link de la oferta." : "",
     PIN_REGLA,
-    "Respondé SOLO con JSON: {\"placa\":{\"titulo\":string,\"subtitulo\":string},\"instagram\":string,\"linkedin\":string,\"pinterest\":{\"titulo\":string,\"descripcion\":string}}.",
-  ].join("\n");
+    `Respondé SOLO con JSON: {"placa":{"titulo":string,"subtitulo":string},"instagram":string,${CON_LINKEDIN ? '"linkedin":string,' : ""}"pinterest":{"titulo":string,"descripcion":string}}.`,
+  ].filter(Boolean).join("\n");
   const user = JSON.stringify({
     oferta: slot.etiqueta,
     angulo: slot.angulo,
@@ -115,7 +119,7 @@ function parsePost(raw) {
   const titulo = cut(data?.placa?.titulo, 70);
   const instagram = cut(data?.instagram, 2200); // límite real de Instagram
   const linkedin = cut(data?.linkedin, 3000); // límite real de LinkedIn
-  if (!titulo || !instagram || !linkedin) return { ok: false, motivo: "Faltan partes del post (título, Instagram o LinkedIn)." };
+  if (!titulo || !instagram || (CON_LINKEDIN && !linkedin)) return { ok: false, motivo: "Faltan partes del post (título, Instagram o LinkedIn)." };
   return { ok: true, placa: { titulo, subtitulo: cut(data?.placa?.subtitulo, 100) }, instagram, linkedin, pinterest: limpiarPin(data?.pinterest) };
 }
 
@@ -131,7 +135,7 @@ function buildPinPrompt(post) {
   const facts = OFFER_FACTS[post.oferta] || [];
   const system = [
     `Sos la community manager de ${brand.nombre} (${brand.publico}).`,
-    "Usá SOLO los hechos de la oferta. No inventes precios, cifras, testimonios ni resultados. Español de España.",
+    `Usá SOLO los hechos de la oferta. No inventes precios, cifras, testimonios ni resultados. ${brand.tono}.`,
     PIN_REGLA,
     "Respondé SOLO con JSON: {\"titulo\":string,\"descripcion\":string}.",
   ].join("\n");

@@ -73,7 +73,8 @@ Cada proyecto tiene su propio Firebase y sus propios datos. Se usa el mismo repo
 1. Crear el proyecto en Firebase (Auth con Google, Firestore, Hosting, Functions) y el secreto `OPENAI_API_KEY`.
 2. Completar `.env`, `functions/.env` y `.firebaserc` con los datos de ese proyecto y los emails permitidos.
 3. Copiar `functions/project.example.json` a `functions/project.json`: nombre, firma, web, URL del panel y los **hechos de cada oferta** (el redactor solo puede afirmar lo que esté ahí). Sin este archivo queda la configuración de Mariela.
-4. Elegir módulos con `FEATURES` (functions/.env) y `VITE_FEATURES` (.env). Siempre están CRM, scoring y seguimientos; opcionales: `copy`, `redes` (Community Manager + Publicador), `prospector` (solo sirve para negocios de belleza). Ej.: `FEATURES="copy"`.
+4. Elegir módulos con `FEATURES` (functions/.env) y `VITE_FEATURES` (.env). Siempre están CRM, scoring y seguimientos; opcionales: `copy`, `redes` (Community Manager + Publicador), `linkedin` (solo en el panel; acompaña a `redes`), `prospector` (solo sirve para negocios de belleza). Ej.: `FEATURES="copy"`.
+   Perfiles ya armados en `proyectos/` (ej. `proyectos/viajahoytips/project.json`: copiarlo a `functions/project.json`). Además de marca y ofertas, `project.json` define `tono`, `redes`, `horario` (días, hora, zona), `angulos` y `pinRegla`. Si hay más temas que días de publicación, rotan semana a semana.
 5. `firebase use <proyecto>` y publicar. Las mejoras de código se traen con `git pull` en cada clon.
 
 ## Uso

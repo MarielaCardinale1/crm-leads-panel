@@ -1,0 +1,104 @@
+{
+  "_comentario": "Perfil de ViajaHoyTips. Copiar a functions/project.json en la carpeta de ese proyecto. Datos verificados el 07/09/2026 en las páginas oficiales de cada parque (content/permisos-parques.json de viajahoytips). Los otros 5 parques (Gran Cañón, Great Smoky Mountains, Joshua Tree, Acadia, Olympic) se suman después.",
+  "marca": {
+    "nombre": "ViajaHoyTips",
+    "firma": "Mariela",
+    "web": "viajahoytips.com",
+    "panelUrl": "https://REEMPLAZAR-panel-viajahoytips.web.app",
+    "igUserId": "",
+    "publico": "residentes hispanos en EE.UU. que quieren viajar por Estados Unidos: parques nacionales, road trips, presupuesto y trámites, sin barrera de idioma",
+    "tono": "Español neutro para residentes hispanos en EE.UU., con voseo como en el sitio (\"tenés\", \"podés\")",
+    "redes": [
+      "instagram"
+    ],
+    "horario": {
+      "dias": [
+        1,
+        3,
+        5
+      ],
+      "hora": 10,
+      "zona": "America/New_York"
+    },
+    "angulos": [
+      "El error más común al planificar este parque y cómo evitarlo.",
+      "Lo que cambió en 2026 y hay que saber antes de ir.",
+      "Una pregunta frecuente de quien viaja por primera vez, respondida en claro.",
+      "Mito vs. realidad sobre este parque.",
+      "Checklist corto (3 puntos) para revisar antes de reservar.",
+      "Qué conviene resolver con anticipación y qué no hace falta."
+    ],
+    "pinRegla": "Pinterest funciona como buscador: pinterest.titulo de máximo 90 caracteres con la palabra clave al principio (ej. \"Zion 2026: cómo conseguir el permiso de Angels Landing\"); pinterest.descripcion de 200 a 450 caracteres, natural, con 2-3 búsquedas reales que haría un residente hispano en EE.UU. planificando su viaje, sin hashtags y sin el link (el link va aparte)."
+  },
+  "ofertasRedes": [
+    {
+      "key": "yosemite",
+      "etiqueta": "Yosemite",
+      "url": "https://viajahoytips.com/yosemite"
+    },
+    {
+      "key": "glacier",
+      "etiqueta": "Glacier",
+      "url": "https://viajahoytips.com/glacier"
+    },
+    {
+      "key": "rocky mountain",
+      "etiqueta": "Rocky Mountain",
+      "url": "https://viajahoytips.com/rocky-mountain"
+    },
+    {
+      "key": "zion",
+      "etiqueta": "Zion",
+      "url": "https://viajahoytips.com/zion"
+    },
+    {
+      "key": "yellowstone",
+      "etiqueta": "Yellowstone",
+      "url": "https://viajahoytips.com/yellowstone"
+    },
+    {
+      "key": "grand teton",
+      "etiqueta": "Grand Teton",
+      "url": "https://viajahoytips.com/grand-teton"
+    }
+  ],
+  "hechos": {
+    "yosemite": [
+      "En 2026 Yosemite no vuelve a usar el sistema de reserva por horario: se entra sin reservar.",
+      "El parque gestiona el tránsito en el momento: monitoreo en tiempo real, manejo del estacionamiento y avisos de congestión.",
+      "Conviene ir entre semana y salir del Valle si está lleno.",
+      "La guía de ViajaHoyTips tiene hitos geográficos, tarifas 2026, alojamiento, fauna, clima y planificación."
+    ],
+    "glacier": [
+      "En 2026 Glacier no requiere reserva de vehículo para entrar.",
+      "Lo que cambió es Logan Pass: funciona con shuttle con ticket y el estacionamiento está limitado a tres horas.",
+      "Si tu plan incluye Logan Pass, ese es el punto a resolver, no la entrada al parque.",
+      "La guía de ViajaHoyTips tiene rutas sugeridas, campings, fauna y pases."
+    ],
+    "rocky mountain": [
+      "Rocky Mountain pide permiso por horario del 22 de mayo al 18 de octubre.",
+      "Hay dos permisos distintos y elegir mal es el error más común: el de Bear Lake Road (de 5 a 18 h, hasta el 18 de octubre) y el general, que cubre todo menos Bear Lake Road (de 9 a 14 h, hasta el 12 de octubre).",
+      "Cuesta 2 USD de gestión, no se devuelve ni se transfiere, y da una ventana de dos horas para entrar: una vez adentro te quedás lo que quieras.",
+      "Los cupos salen el primero de cada mes a las 8 h (hora de montaña) para el mes siguiente, y el 40 % restante se libera a las 19 h de la noche anterior. No se consiguen en la entrada del parque.",
+      "La guía de ViajaHoyTips tiene senderos, refugios, la ruta Trail Ridge y pases."
+    ],
+    "zion": [
+      "Entrar a Zion no requiere reserva: el permiso es solo para un sendero, Angels Landing.",
+      "Todo el que quiera hacer el tramo de cadenas entre Scout Lookout y Angels Landing necesita permiso, a cualquier hora y en cualquier época.",
+      "El permiso se consigue por sorteo: el estacional se pide con uno a tres meses de anticipación eligiendo siete días por preferencia; el del día anterior abre a las 00:01 y cierra a las 15 h (hora de montaña).",
+      "Cuesta 6 USD por solicitar (no se devuelven) más 3 USD por persona si salís sorteada; esos 3 USD se devuelven en el sorteo estacional si cancelás con dos días de aviso.",
+      "La guía de ViajaHoyTips tiene tarifas 2026, el permiso de Angels Landing, el transporte del cañón y senderos."
+    ],
+    "yellowstone": [
+      "Yellowstone no requiere reserva para entrar.",
+      "Lo que sí hay que reservar con mucha anticipación es dónde dormir: lodges y campings se agotan meses antes.",
+      "Backcountry, pesca, navegación, caballos y motos de nieve necesitan permiso aparte.",
+      "La guía de ViajaHoyTips tiene paradas obligatorias, fauna, rutas, alojamiento y pases del parque."
+    ],
+    "grand teton": [
+      "Grand Teton se entra sin reserva, pagando la tarifa de entrada.",
+      "Los permisos que sí existen son por actividad, sobre todo el de camping en backcountry.",
+      "La guía de ViajaHoyTips tiene tarifas 2026, senderos, fauna y cómo combinarlo con Yellowstone."
+    ]
+  }
+}
