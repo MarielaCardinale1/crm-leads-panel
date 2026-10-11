@@ -25,19 +25,27 @@ async function get(url) {
   rl.close();
   console.log("\nCanjeando por una clave larga...");
   const long = await get(`${G}/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${secret}&fb_exchange_token=${encodeURIComponent(short)}`);
-  const pages = await get(`${G}/me/accounts?fields=name,access_token,instagram_business_account{id,username}&access_token=${encodeURIComponent(long.access_token)}`);
-  const conIg = (pages.data || []).filter((p) => p.instagram_business_account);
-  if (!conIg.length) throw new Error("No encontre ninguna pagina con Instagram conectado. Revisa los permisos en el Explorer.");
-  console.log("\nPaginas con Instagram conectado:");
-  conIg.forEach((p, i) => console.log(`  ${i + 1}) ${p.name} | Instagram: @${p.instagram_business_account.username} | ID de pagina: ${p.id}`));
+  const pages = await get(`${G}/me/accounts?fields=name,id,access_token,instagram_business_account{id,username}&limit=100&access_token=${encodeURIComponent(long.access_token)}`);
+  const todas = pages.data || [];
+  console.log("\nPaginas que ve este token:");
+  if (!todas.length) console.log("  (ninguna)");
+  todas.forEach((p, i) => console.log(`  ${i + 1}) ${p.name} | ID de pagina: ${p.id} | Instagram: ${p.instagram_business_account ? "@" + p.instagram_business_account.username : "NO vinculado"}`));
   const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const n = Number((await rl2.question(`\n4) Elegi el numero de la pagina (1-${conIg.length}): `)).trim());
-  const page = conIg[n - 1];
+  const directo = (await rl2.question("\n4) Si tu pagina NO esta en la lista, pega aca su ID de Facebook. Si esta, apreta Enter: ")).trim();
+  let page;
+  if (directo) {
+    page = await get(`${G}/${encodeURIComponent(directo)}?fields=name,id,access_token,instagram_business_account{id,username}&access_token=${encodeURIComponent(long.access_token)}`);
+    if (!page.access_token) throw new Error("Este token no tiene acceso de administrador a esa pagina. Revisa que la cuenta de Facebook que genero el token administre la pagina.");
+  } else {
+    const n = Number((await rl2.question(`5) Elegi el numero de la pagina (1-${todas.length}): `)).trim());
+    page = todas[n - 1];
+  }
   if (!page) throw new Error("Numero invalido. No se guardo nada.");
+  if (!page.instagram_business_account) throw new Error(`La pagina "${page.name}" no tiene un Instagram profesional vinculado. Vincularlo en Facebook y repetir. No se guardo nada.`);
   let proyecto = "(no encontrado: .firebaserc)";
   try { proyecto = JSON.parse(fs.readFileSync(".firebaserc", "utf8")).projects.default; } catch {}
   console.log(`\nSe va a guardar la clave de "${page.name}" en el proyecto de Firebase: ${proyecto}`);
-  const ok = (await rl2.question("5) Es el correcto? (s/n): ")).trim().toLowerCase();
+  const ok = (await rl2.question("6) Es el correcto? (s/n): ")).trim().toLowerCase();
   rl2.close();
   if (ok !== "s") throw new Error("Cancelado. No se guardo nada.");
   console.log(`Pagina: ${page.name} | Instagram: @${page.instagram_business_account.username} | ID: ${page.instagram_business_account.id}`);
