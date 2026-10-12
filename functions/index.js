@@ -352,6 +352,8 @@ exports.postsApi = feature("redes") && wrap("postsApi", async (req, res, user) =
       }
     }
     // Mientras Pinterest no apruebe la app, Mariela lo sube a mano y lo marca acá.
+    // Reintentar una red que falló: se borra su estado y el Publicador la vuelve a intentar (si el post está aprobado y su hora ya pasó).
+    if (["instagram", "linkedin", "facebook"].includes(b.reintentar)) patch[`publicacion.${b.reintentar}`] = admin.firestore.FieldValue.delete();
     if (b.pinterestHecho === true) patch["publicacion.pinterest"] = { ok: true, manual: true, at: Date.now() };
     const doc = await ref.doc(id).get();
     if (!doc.exists) return res.status(404).json({ agent: "postsApi", error: "No encontré ese post." });

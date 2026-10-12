@@ -67,8 +67,16 @@ function textoLinkedin(text) {
  */
 function textoFacebook(post) {
   const propio = String(post.facebook || "").trim();
-  const base = propio || `${String(post.instagram || "").replace(/#[\p{L}\p{N}_]+/gu, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim()}\n\n${post.url || ""}`;
-  return base.trim().slice(0, 2000);
+  if (propio) return propio.slice(0, 2000);
+  const sinInstagram = String(post.instagram || "")
+    .replace(/#[\p{L}\p{N}_]+/gu, "")
+    .split("\n")
+    // Frases que solo tienen sentido en Instagram ("link en la bio", "escribinos por DM")
+    .map((linea) => linea.split(/(?<=[.!?])\s+/).filter((f) => !/\b(bio|DM|mensaje directo|mensaje privado)\b/i.test(f)).join(" ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return `${sinInstagram}\n\n${post.url || ""}`.trim().slice(0, 2000);
 }
 
 /** ¿Hay que reconectar LinkedIn? (la conexión dura 60 días) */

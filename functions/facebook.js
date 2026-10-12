@@ -8,10 +8,11 @@ const G = "https://graph.facebook.com/v21.0";
 /** Traduce los errores de Meta a algo que se entienda en el panel. */
 function mensajeDeError(error) {
   const code = error?.code;
+  const meta = error?.message ? ` (Meta dice: ${String(error.message).slice(0, 220)})` : "";
   if (code === 200 || code === 10 || /permission/i.test(error?.message || "")) {
-    return "Falta el permiso pages_manage_posts: activá el caso de uso de la Página en la app de Meta, generá el token de nuevo y volvé a correr \"Guardar token Instagram.bat\".";
+    return `Falta un permiso para publicar en la Página: pages_manage_posts en la clave, o permisos de administración sobre la Página.${meta}`;
   }
-  if (code === 190) return "La clave de Facebook venció o no sirve: generá el token de nuevo y volvé a correr \"Guardar token Instagram.bat\".";
+  if (code === 190) return `La clave de Facebook venció o no sirve: generá el token de nuevo y volvé a correr "Guardar token Instagram.bat".${meta}`;
   return error?.error_user_msg || error?.message || "Facebook no respondió.";
 }
 
