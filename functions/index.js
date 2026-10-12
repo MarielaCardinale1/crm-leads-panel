@@ -328,7 +328,7 @@ exports.postsApi = feature("redes") && wrap("postsApi", async (req, res, user) =
   const ref = postsRef(user.uid);
   if (req.method === "GET") {
     const snap = await ref.orderBy("fechaPublicacion", "desc").limit(60).get();
-    return res.json({ posts: snap.docs.map((d) => ({ id: d.id, ...d.data() })), zona: brand.horario.zona });
+    return res.json({ posts: snap.docs.map((d) => ({ id: d.id, ...d.data() })), zona: brand.horario.zona, facebook: CON_FACEBOOK });
   }
   if (req.method === "POST") {
     const b = req.body || {};
@@ -355,6 +355,11 @@ exports.postsApi = feature("redes") && wrap("postsApi", async (req, res, user) =
     if (b.pinterestHecho === true) patch["publicacion.pinterest"] = { ok: true, manual: true, at: Date.now() };
     const doc = await ref.doc(id).get();
     if (!doc.exists) return res.status(404).json({ agent: "postsApi", error: "No encontré ese post." });
+    // Al sumar Facebook a un post que no tiene su texto, se arma del de Instagram (sin hashtags y con el link).
+    if (patch.redes?.includes("facebook") && !(patch.facebook || doc.data().facebook)) patch.facebook = publisher.textoFacebook(doc.data());
+    if (patch.redes && doc.data().estado === "publicado") {
+      return res.status(400).json({ agent: "postsApi", error: "Ese post ya salió: no se pueden cambiar las redes." });
+    }
     if (patch.fechaPublicacion && doc.data().estado === "publicado") {
       return res.status(400).json({ agent: "postsApi", error: "Ese post ya salió: no se puede cambiar la fecha." });
     }
