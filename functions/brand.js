@@ -17,8 +17,10 @@ const DEFAULTS = {
   publico: "negocios locales en España: estudios de belleza, peluquerías, centros de estética",
   // Cómo habla el redactor (copy y posts).
   tono: 'Español de España (tú, "cita", "reserva", "señal")',
-  // Redes donde publica el Community Manager (instagram, linkedin). Define qué textos redacta.
+  // Redes donde publica el Community Manager (instagram, linkedin, facebook). Define qué textos redacta.
   redes: ["instagram", "linkedin"],
+  // Id de la Página de Facebook (solo si "facebook" está en redes). No es secreto.
+  fbPageId: "",
   // Cuándo salen los posts: días de la semana (1 = lunes), hora y zona horaria.
   horario: { dias: [1, 3, 5], hora: 10, zona: "Europe/Madrid" },
   // null = usar los textos originales de posts-rules.js

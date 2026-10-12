@@ -72,10 +72,11 @@ export interface Post {
   placa: { titulo: string; subtitulo: string };
   instagram: string;
   linkedin: string;
-  redes: ('instagram' | 'linkedin')[];
+  facebook?: string;
+  redes: ('instagram' | 'linkedin' | 'facebook')[];
   media: { tipo: 'placa' | 'foto' | 'video'; url: string; path: string };
   estado: EstadoPost;
-  publicacion?: { instagram?: Publicacion; linkedin?: Publicacion; pinterest?: Publicacion & { manual?: boolean } };
+  publicacion?: { instagram?: Publicacion; linkedin?: Publicacion; facebook?: Publicacion; pinterest?: Publicacion & { manual?: boolean } };
   pinterest?: { titulo: string; descripcion: string; url?: string; path?: string } | null;
 }
 
@@ -87,7 +88,7 @@ export async function fetchPosts(): Promise<{ posts: Post[]; zona?: string }> {
   return call('postsApi', { method: 'GET' });
 }
 
-export async function updatePost(id: string, patch: Partial<Pick<Post, 'instagram' | 'linkedin' | 'estado' | 'fechaPublicacion' | 'redes'>> & { pinterest?: { titulo: string; descripcion: string }; pinterestHecho?: boolean }): Promise<{ ok: boolean }> {
+export async function updatePost(id: string, patch: Partial<Pick<Post, 'instagram' | 'linkedin' | 'facebook' | 'estado' | 'fechaPublicacion' | 'redes'>> & { pinterest?: { titulo: string; descripcion: string }; pinterestHecho?: boolean }): Promise<{ ok: boolean }> {
   return call('postsApi', { method: 'POST', body: JSON.stringify({ id, ...patch }) });
 }
 
@@ -106,7 +107,7 @@ export async function uploadPostMedia(id: string, file: File): Promise<{ ok: boo
 }
 
 /** Microagente Publicador: publica YA en Instagram un post aprobado. */
-export async function publishNow(id: string): Promise<{ ok: boolean; instagram?: Publicacion; linkedin?: Publicacion }> {
+export async function publishNow(id: string): Promise<{ ok: boolean; instagram?: Publicacion; linkedin?: Publicacion; facebook?: Publicacion }> {
   return call('publicarAhora', { method: 'POST', body: JSON.stringify({ id }) });
 }
 
