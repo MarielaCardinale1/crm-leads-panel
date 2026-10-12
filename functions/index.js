@@ -327,7 +327,7 @@ exports.postsApi = feature("redes") && wrap("postsApi", async (req, res, user) =
   const ref = postsRef(user.uid);
   if (req.method === "GET") {
     const snap = await ref.orderBy("fechaPublicacion", "desc").limit(60).get();
-    return res.json({ posts: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
+    return res.json({ posts: snap.docs.map((d) => ({ id: d.id, ...d.data() })), zona: brand.horario.zona });
   }
   if (req.method === "POST") {
     const b = req.body || {};
@@ -337,7 +337,10 @@ exports.postsApi = feature("redes") && wrap("postsApi", async (req, res, user) =
     if (typeof b.instagram === "string") patch.instagram = b.instagram.slice(0, 2200);
     if (typeof b.linkedin === "string") patch.linkedin = b.linkedin.slice(0, 3000);
     if (posts.ESTADOS_POST.includes(b.estado) && b.estado !== "publicado") patch.estado = b.estado; // "publicado" solo lo pone el Publicador
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(b.fechaPublicacion || "")) patch.fechaPublicacion = b.fechaPublicacion;
+    if (b.fechaPublicacion !== undefined) {
+      if (!posts.fechaValida(b.fechaPublicacion)) return res.status(400).json({ agent: "postsApi", error: "Fecha u hora no válida." });
+      patch.fechaPublicacion = b.fechaPublicacion;
+    }
     if (Array.isArray(b.redes)) patch.redes = b.redes.filter((r) => ["instagram", "linkedin"].includes(r));
     if (b.pinterest && typeof b.pinterest === "object") {
       const pin = posts.limpiarPin(b.pinterest);
@@ -350,6 +353,9 @@ exports.postsApi = feature("redes") && wrap("postsApi", async (req, res, user) =
     if (b.pinterestHecho === true) patch["publicacion.pinterest"] = { ok: true, manual: true, at: Date.now() };
     const doc = await ref.doc(id).get();
     if (!doc.exists) return res.status(404).json({ agent: "postsApi", error: "No encontré ese post." });
+    if (patch.fechaPublicacion && doc.data().estado === "publicado") {
+      return res.status(400).json({ agent: "postsApi", error: "Ese post ya salió: no se puede cambiar la fecha." });
+    }
     await ref.doc(id).update(patch);
     return res.json({ ok: true });
   }
