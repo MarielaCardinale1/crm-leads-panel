@@ -137,7 +137,7 @@ const PinBloque: React.FC<{
   );
 };
 
-const PostCard: React.FC<{ post: Post; zona: string; liConectado: boolean; onChanged: () => void; onToast: Props['onToast'] }> = ({ post, zona, liConectado, onChanged, onToast }) => {
+const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; liConectado: boolean; onChanged: () => void; onToast: Props['onToast'] }> = ({ post, zona, facebookActivo, liConectado, onChanged, onToast }) => {
   const [ig, setIg] = useState(post.instagram);
   const [li, setLi] = useState(post.linkedin);
   const [fb, setFb] = useState(post.facebook || '');
@@ -274,6 +274,14 @@ const PostCard: React.FC<{ post: Post; zona: string; liConectado: boolean; onCha
             </div>
           )}
 
+          {editable && facebookActivo && !post.redes?.includes('facebook') && (
+            <button disabled={!!busy}
+              onClick={() => run('fb', () => updatePost(post.id, { redes: [...(post.redes || []), 'facebook'] }), 'Sale también en Facebook')}
+              className={`${btn} border border-[#F5C9A8] dark:border-[#3D2E22] text-[#1a1a1a] dark:text-[#F5EBE1] hover:bg-[#FFF8F0] dark:hover:bg-[#231E19]`}>
+              {busy === 'fb' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Facebook className="w-4 h-4" />} Agregar a Facebook
+            </button>
+          )}
+
           <div className="space-y-1">
             <EstadoRed red="Instagram" pub={post.publicacion?.instagram} elegida={post.redes?.includes('instagram')} />
             <EstadoRed red="Facebook" pub={post.publicacion?.facebook} elegida={post.redes?.includes('facebook')} />
@@ -328,6 +336,7 @@ const PostCard: React.FC<{ post: Post; zona: string; liConectado: boolean; onCha
 export const PostsPanel: React.FC<Props> = ({ onToast }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [zona, setZona] = useState('Europe/Madrid');
+  const [facebookActivo, setFacebookActivo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -351,9 +360,10 @@ export const PostsPanel: React.FC<Props> = ({ onToast }) => {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const { posts, zona } = await fetchPosts();
+      const { posts, zona, facebook } = await fetchPosts();
       setPosts(posts || []);
       if (zona) setZona(zona);
+      setFacebookActivo(!!facebook);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -424,7 +434,7 @@ export const PostsPanel: React.FC<Props> = ({ onToast }) => {
             {posts
               .filter((p) => p.semana === s)
               .sort((a, b) => a.fechaPublicacion.localeCompare(b.fechaPublicacion))
-              .map((p) => <PostCard key={p.id} post={p} zona={zona} liConectado={!!liEstado?.conectado} onChanged={load} onToast={onToast} />)}
+              .map((p) => <PostCard key={p.id} post={p} zona={zona} facebookActivo={facebookActivo} liConectado={!!liEstado?.conectado} onChanged={load} onToast={onToast} />)}
           </section>
         ))
       )}
