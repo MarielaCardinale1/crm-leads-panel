@@ -305,6 +305,7 @@ exports.redactorPosts = feature("redes") && wrap(posts.AGENT, async (req, res, u
         placa: out.placa,
         instagram: out.instagram,
         linkedin: out.linkedin || "",
+        facebook: out.facebook || "",
         pinterest: out.pinterest ? { ...out.pinterest, ...pin } : null,
         redes: brand.redes,
         media: { tipo: "placa", ...media },
@@ -336,12 +337,13 @@ exports.postsApi = feature("redes") && wrap("postsApi", async (req, res, user) =
     const patch = { updatedAt: Date.now() };
     if (typeof b.instagram === "string") patch.instagram = b.instagram.slice(0, 2200);
     if (typeof b.linkedin === "string") patch.linkedin = b.linkedin.slice(0, 3000);
+    if (typeof b.facebook === "string") patch.facebook = b.facebook.slice(0, 2000);
     if (posts.ESTADOS_POST.includes(b.estado) && b.estado !== "publicado") patch.estado = b.estado; // "publicado" solo lo pone el Publicador
     if (b.fechaPublicacion !== undefined) {
       if (!posts.fechaValida(b.fechaPublicacion)) return res.status(400).json({ agent: "postsApi", error: "Fecha u hora no válida." });
       patch.fechaPublicacion = b.fechaPublicacion;
     }
-    if (Array.isArray(b.redes)) patch.redes = b.redes.filter((r) => ["instagram", "linkedin"].includes(r));
+    if (Array.isArray(b.redes)) patch.redes = b.redes.filter((r) => ["instagram", "linkedin", "facebook"].includes(r));
     if (b.pinterest && typeof b.pinterest === "object") {
       const pin = posts.limpiarPin(b.pinterest);
       if (pin) {
@@ -420,6 +422,7 @@ const CON_LINKEDIN = feature("redes") && brand.redes.includes("linkedin");
 const LINKEDIN_CLIENT_ID = CON_LINKEDIN ? defineSecret("LINKEDIN_CLIENT_ID") : null;
 const LINKEDIN_CLIENT_SECRET = CON_LINKEDIN ? defineSecret("LINKEDIN_CLIENT_SECRET") : null;
 const li = require("./linkedin");
+const fb = require("./facebook");
 const LI_REDIRECT = `https://us-central1-${process.env.GCLOUD_PROJECT || "gen-lang-client-0047460717"}.cloudfunctions.net/linkedinCallback`;
 const PANEL_URL = brand.panelUrl;
 const liRef = (uid) => db.collection("crmLinkedin").doc(uid);
@@ -448,6 +451,8 @@ async function publicarEnLinkedin(post, conexion) {
     return { ok: false, intentos, error: error.message, at: Date.now() };
   }
 }
+const FB_PAGE_ID = process.env.FB_PAGE_ID || brand.fbPageId;
+const CON_FACEBOOK = brand.redes.includes("facebook") && !!FB_PAGE_ID;
 const IG_USER_ID = process.env.IG_USER_ID || brand.igUserId; // id de la cuenta de Instagram (no es secreto)
 const LOCK_MS = 6 * 60 * 1000;
 
@@ -500,12 +505,25 @@ async function publicarEnInstagram(uid, postRef, post, token) {
   }
 }
 
+/** Publica UN post en la Página de Facebook (foto o video con texto). Usa la misma clave de página que Instagram. */
+async function publicarEnFacebook(post, token) {
+  const prev = post.publicacion?.facebook || {};
+  const intentos = (prev.intentos || 0) + 1;
+  try {
+    const datos = { url: post.media.url, mensaje: publisher.textoFacebook(post) };
+    const r = post.media.tipo === "video" ? await fb.publicarVideo(FB_PAGE_ID, token, datos) : await fb.publicarFoto(FB_PAGE_ID, token, datos);
+    return { ok: true, id: r.id, url: r.url, at: Date.now(), intentos };
+  } catch (error) {
+    return { ok: false, intentos, error: error.message, at: Date.now() };
+  }
+}
+
 /** Revisa los posts aprobados de un usuario y publica los que tocan. */
 async function correrPublicador(uid, soloId = null) {
   const token = IG_PAGE_TOKEN.value();
   const now = publisher.nowKey();
   const conexionLi = CON_LINKEDIN ? await linkedinConexion(uid).catch(() => null) : null;
-  const activas = conexionLi ? ["instagram", "linkedin"] : ["instagram"];
+  const activas = ["instagram", ...(conexionLi ? ["linkedin"] : []), ...(CON_FACEBOOK ? ["facebook"] : [])];
   const snap = await postsRef(uid).where("estado", "==", "aprobado").get();
   const resultados = [];
   for (const doc of snap.docs) {
@@ -530,10 +548,13 @@ async function correrPublicador(uid, soloId = null) {
       if (pendientes.includes("linkedin")) {
         publicacion.linkedin = await publicarEnLinkedin(fresh, conexionLi);
       }
+      if (pendientes.includes("facebook")) {
+        publicacion.facebook = await publicarEnFacebook(fresh, token);
+      }
       const estado = publisher.estadoTras({ ...fresh, publicacion });
       await doc.ref.update({ publicacion, estado, publicando: admin.firestore.FieldValue.delete(), updatedAt: Date.now() });
-      resultados.push({ id: doc.id, oferta: fresh.etiqueta, instagram: publicacion.instagram, linkedin: publicacion.linkedin });
-      logger.info(`[${publisher.AGENT}] ${doc.id}`, { ig: publicacion.instagram?.ok ?? null, li: publicacion.linkedin?.ok ?? null, igError: publicacion.instagram?.error, liError: publicacion.linkedin?.error });
+      resultados.push({ id: doc.id, oferta: fresh.etiqueta, instagram: publicacion.instagram, linkedin: publicacion.linkedin, facebook: publicacion.facebook });
+      logger.info(`[${publisher.AGENT}] ${doc.id}`, { ig: publicacion.instagram?.ok ?? null, li: publicacion.linkedin?.ok ?? null, fb: publicacion.facebook?.ok ?? null, igError: publicacion.instagram?.error, liError: publicacion.linkedin?.error, fbError: publicacion.facebook?.error });
     } catch (error) {
       await doc.ref.update({ publicando: admin.firestore.FieldValue.delete() });
       throw error;
@@ -570,8 +591,8 @@ exports.publicarAhora = feature("redes") && wrap(publisher.AGENT, async (req, re
   const r = await correrPublicador(user.uid, id);
   const out = r.resultados[0];
   if (!out) return res.status(409).json({ agent: publisher.AGENT, error: "Ya se está publicando o ya estaba publicado." });
-  const redes = [out.instagram, out.linkedin].filter(Boolean);
-  res.json({ ok: redes.every((x) => x.ok), instagram: out.instagram, linkedin: out.linkedin });
+  const redes = [out.instagram, out.linkedin, out.facebook].filter(Boolean);
+  res.json({ ok: redes.every((x) => x.ok), instagram: out.instagram, linkedin: out.linkedin, facebook: out.facebook });
 }, { secrets: PUB_SECRETS, timeoutSeconds: 540, memory: "1GiB" });
 
 if (CON_LINKEDIN) {

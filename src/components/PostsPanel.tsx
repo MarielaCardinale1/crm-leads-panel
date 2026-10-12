@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Sparkles, Upload, Check, X, Instagram, Linkedin, Copy, RotateCcw, Loader2, Send, ExternalLink, AlertTriangle, Pin, Download } from 'lucide-react';
+import { Sparkles, Upload, Check, X, Instagram, Linkedin, Facebook, Copy, RotateCcw, Loader2, Send, ExternalLink, AlertTriangle, Pin, Download } from 'lucide-react';
 import { Post, EstadoPost, fetchPosts, generateWeek, updatePost, uploadPostMedia, publishNow, makePin, linkedinStatus, linkedinConnect, Publicacion, MAX_MEDIA_MB } from '../services/leadService';
 import { hasFeature } from '../firebase-config';
 
@@ -39,7 +39,7 @@ const area = 'w-full text-xs sm:text-sm rounded-xl border border-[#F5C9A8] dark:
 
 const EstadoRed: React.FC<{ red: string; pub?: Publicacion; elegida?: boolean; sinConexion?: boolean }> = ({ red, pub, elegida, sinConexion }) => {
   if (!elegida) return null;
-  const Icon = red === 'Instagram' ? Instagram : Linkedin;
+  const Icon = red === 'Instagram' ? Instagram : red === 'Facebook' ? Facebook : Linkedin;
   if (pub?.ok)
     return (
       <a href={pub.url || '#'} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:underline">
@@ -140,15 +140,17 @@ const PinBloque: React.FC<{
 const PostCard: React.FC<{ post: Post; zona: string; liConectado: boolean; onChanged: () => void; onToast: Props['onToast'] }> = ({ post, zona, liConectado, onChanged, onToast }) => {
   const [ig, setIg] = useState(post.instagram);
   const [li, setLi] = useState(post.linkedin);
+  const [fb, setFb] = useState(post.facebook || '');
   const [fecha, setFecha] = useState(post.fechaPublicacion.replace(' ', 'T'));
   const [busy, setBusy] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const dirty = ig !== post.instagram || li !== post.linkedin;
+  const dirty = ig !== post.instagram || li !== post.linkedin || fb !== (post.facebook || '');
 
   useEffect(() => {
     setIg(post.instagram);
     setLi(post.linkedin);
-  }, [post.instagram, post.linkedin]);
+    setFb(post.facebook || '');
+  }, [post.instagram, post.linkedin, post.facebook]);
 
   useEffect(() => {
     setFecha(post.fechaPublicacion.replace(' ', 'T'));
@@ -169,7 +171,7 @@ const PostCard: React.FC<{ post: Post; zona: string; liConectado: boolean; onCha
   };
 
   const setEstado = (estado: EstadoPost) =>
-    run(estado, () => updatePost(post.id, { estado, ...(dirty ? { instagram: ig, linkedin: li } : {}) }),
+    run(estado, () => updatePost(post.id, { estado, ...(dirty ? { instagram: ig, linkedin: li, facebook: fb } : {}) }),
       estado === 'aprobado' ? 'Post aprobado' : estado === 'descartado' ? 'Post descartado' : 'Volvió a borrador');
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -236,6 +238,15 @@ const PostCard: React.FC<{ post: Post; zona: string; liConectado: boolean; onCha
             </div>
             <textarea className={area} rows={7} maxLength={2200} value={ig} disabled={!editable} onChange={(e) => setIg(e.target.value)} />
           </div>
+          {post.redes?.includes('facebook') && <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Facebook className="w-4 h-4 text-[#E8610A]" />
+              <span className="text-xs font-semibold text-[#1a1a1a] dark:text-[#F5EBE1]">Facebook</span>
+              <span className="text-[11px] text-[#999]">{fb.length}/2000</span>
+              <button onClick={() => copy(fb, 'Facebook')} className="ml-auto text-[#666] hover:text-[#E8610A]" title="Copiar"><Copy className="w-4 h-4" /></button>
+            </div>
+            <textarea className={area} rows={5} maxLength={2000} value={fb} disabled={!editable} onChange={(e) => setFb(e.target.value)} />
+          </div>}
           {post.redes?.includes('linkedin') && <div>
             <div className="flex items-center gap-2 mb-1">
               <Linkedin className="w-4 h-4 text-[#E8610A]" />
@@ -265,6 +276,7 @@ const PostCard: React.FC<{ post: Post; zona: string; liConectado: boolean; onCha
 
           <div className="space-y-1">
             <EstadoRed red="Instagram" pub={post.publicacion?.instagram} elegida={post.redes?.includes('instagram')} />
+            <EstadoRed red="Facebook" pub={post.publicacion?.facebook} elegida={post.redes?.includes('facebook')} />
             {post.redes?.includes('linkedin') && <EstadoRed red="LinkedIn" pub={post.publicacion?.linkedin} elegida sinConexion={!liConectado} />}
             {post.estado === 'aprobado' && <p className="text-xs text-emerald-700 dark:text-emerald-300">Sale solo el {fechaLinda(post.fechaPublicacion)}.</p>}
           </div>
@@ -273,10 +285,10 @@ const PostCard: React.FC<{ post: Post; zona: string; liConectado: boolean; onCha
             <div className="flex flex-wrap gap-2">
               {post.estado === 'aprobado' && (
                 <button disabled={!!busy}
-                  onClick={() => window.confirm(`¿Publicar este post ahora mismo en Instagram${liConectado ? ' y LinkedIn' : ''}?`) &&
+                  onClick={() => window.confirm(`¿Publicar este post ahora mismo en ${[post.redes?.includes('instagram') && 'Instagram', post.redes?.includes('facebook') && 'Facebook', post.redes?.includes('linkedin') && liConectado && 'LinkedIn'].filter(Boolean).join(' y ')}?`) &&
                     run('pub', async () => {
                       const r = await publishNow(post.id);
-                      const errores = [r.instagram?.error && `Instagram: ${r.instagram.error}`, r.linkedin?.error && `LinkedIn: ${r.linkedin.error}`].filter(Boolean);
+                      const errores = [r.instagram?.error && `Instagram: ${r.instagram.error}`, r.facebook?.error && `Facebook: ${r.facebook.error}`, r.linkedin?.error && `LinkedIn: ${r.linkedin.error}`].filter(Boolean);
                       if (!r.ok) throw new Error(errores.join(' · ') || 'No se pudo publicar');
                     }, 'Publicado')}
                   className={`${btn} bg-[#E8610A] text-white hover:bg-[#cf5608]`}>
@@ -284,7 +296,7 @@ const PostCard: React.FC<{ post: Post; zona: string; liConectado: boolean; onCha
                 </button>
               )}
               {dirty && (
-                <button disabled={!!busy} onClick={() => run('save', () => updatePost(post.id, { instagram: ig, linkedin: li }), 'Cambios guardados')}
+                <button disabled={!!busy} onClick={() => run('save', () => updatePost(post.id, { instagram: ig, linkedin: li, facebook: fb }), 'Cambios guardados')}
                   className={`${btn} bg-[#1a1a1a] text-white hover:bg-black`}>
                   {busy === 'save' && <Loader2 className="w-4 h-4 animate-spin" />} Guardar cambios
                 </button>

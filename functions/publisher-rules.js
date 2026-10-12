@@ -11,7 +11,7 @@
 const { brand } = require("./brand");
 
 const AGENT = "publicador";
-const REDES = ["instagram", "linkedin"]; // LinkedIn solo si está conectado (se pasa en `activas`)
+const REDES = ["instagram", "linkedin", "facebook"]; // LinkedIn solo si está conectado y Facebook solo si hay Página (se pasa en `activas`)
 const MAX_INTENTOS = 3;
 const IG_RATIO_MIN = 4 / 5; // Instagram acepta fotos entre 4:5 …
 const IG_RATIO_MAX = 1.91; // … y 1.91:1
@@ -61,6 +61,16 @@ function textoLinkedin(text) {
   return String(text || "").trim().slice(0, 3000).replace(/[\\|{}@\[\]()<>#*_~]/g, (c) => `\\${c}`);
 }
 
+/**
+ * Facebook: usa el texto propio del post; si no tiene (posts viejos), el de Instagram sin hashtags y con el link.
+ * Tope 2000 caracteres.
+ */
+function textoFacebook(post) {
+  const propio = String(post.facebook || "").trim();
+  const base = propio || `${String(post.instagram || "").replace(/#[\p{L}\p{N}_]+/gu, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim()}\n\n${post.url || ""}`;
+  return base.trim().slice(0, 2000);
+}
+
 /** ¿Hay que reconectar LinkedIn? (la conexión dura 60 días) */
 function diasLinkedin(expiresAt, now = Date.now()) {
   return expiresAt ? Math.floor((expiresAt - now) / 86400000) : -1;
@@ -72,4 +82,4 @@ function necesitaBordes(width, height) {
   return r < IG_RATIO_MIN || r > IG_RATIO_MAX;
 }
 
-module.exports = { AGENT, REDES, textoLinkedin, diasLinkedin, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };
+module.exports = { AGENT, REDES, textoFacebook, textoLinkedin, diasLinkedin, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };

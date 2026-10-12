@@ -22,10 +22,11 @@ for (const nombre of perfiles) {
   test(`Perfil ${nombre}: marca, redes y horario válidos`, () => {
     const m = cfg.marca;
     for (const k of ["nombre", "firma", "web", "tono", "publico"]) assert.ok(m[k], `falta marca.${k}`);
-    assert.ok(m.redes.every((r) => ["instagram", "linkedin"].includes(r)));
+    assert.ok(m.redes.every((r) => ["instagram", "linkedin", "facebook"].includes(r)));
     assert.ok(m.horario.dias.every((d) => d >= 1 && d <= 7));
     assert.ok(Number.isInteger(m.horario.hora) && m.horario.hora >= 0 && m.horario.hora <= 23);
     assert.doesNotThrow(() => new Intl.DateTimeFormat("en", { timeZone: m.horario.zona }));
     assert.ok(m.angulos.length >= 3);
+    if (m.redes.includes("facebook")) assert.match(m.fbPageId || "", /^\d+$/, "con facebook en redes hace falta fbPageId");
   });
 }

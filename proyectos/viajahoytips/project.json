@@ -12,7 +12,8 @@
     "publico": "residentes hispanos en EE.UU. que quieren viajar por Estados Unidos: parques nacionales, road trips, presupuesto y trámites, sin barrera de idioma",
     "tono": "Español neutro para residentes hispanos en EE.UU., con voseo como en el sitio (\"tenés\", \"podés\")",
     "redes": [
-      "instagram"
+      "instagram",
+      "facebook"
     ],
     "horario": {
       "dias": [
@@ -31,7 +32,8 @@
       "Checklist corto (3 puntos) para revisar antes de reservar.",
       "Qué conviene resolver con anticipación y qué no hace falta."
     ],
-    "pinRegla": "Pinterest funciona como buscador: pinterest.titulo de máximo 90 caracteres con la palabra clave al principio (ej. \"Zion 2026: cómo conseguir el permiso de Angels Landing\"); pinterest.descripcion de 200 a 450 caracteres, natural, con 2-3 búsquedas reales que haría un residente hispano en EE.UU. planificando su viaje, sin hashtags y sin el link (el link va aparte)."
+    "pinRegla": "Pinterest funciona como buscador: pinterest.titulo de máximo 90 caracteres con la palabra clave al principio (ej. \"Zion 2026: cómo conseguir el permiso de Angels Landing\"); pinterest.descripcion de 200 a 450 caracteres, natural, con 2-3 búsquedas reales que haría un residente hispano en EE.UU. planificando su viaje, sin hashtags y sin el link (el link va aparte).",
+    "fbPageId": "467204289813367"
   },
   "ofertasRedes": [
     {
