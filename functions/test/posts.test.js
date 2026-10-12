@@ -1,7 +1,7 @@
 process.env.BRAND_SIN_PROYECTO = "1"; // configuración original, no la de esta carpeta
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { weeklyPlan, nextMonday, buildPostPrompt, parsePost } = require("../posts-rules");
+const { weeklyPlan, nextMonday, buildPostPrompt, parsePost, fechaValida } = require("../posts-rules");
 const { renderPlaca } = require("../placa");
 
 test("Plan semanal: 3 posts (agenda, ficha, web) lun/mié/vie 10:00 de la semana siguiente", () => {
@@ -57,4 +57,15 @@ test("La placa de Pinterest sale vertical 1000x1500", async () => {
   const png = await renderPlaca({ etiqueta: "Agenda online", titulo: "Reservas sin llamadas", subtitulo: "" }, "pin");
   assert.equal(png.readUInt32BE(16), 1000);
   assert.equal(png.readUInt32BE(20), 1500);
+});
+
+test("Fecha de publicación: solo fechas y horas reales", () => {
+  assert.equal(fechaValida("2026-10-14 10:00"), true);
+  assert.equal(fechaValida("2026-12-31 23:59"), true);
+  assert.equal(fechaValida("2026-02-31 10:00"), false); // no existe
+  assert.equal(fechaValida("2026-10-14 25:00"), false);
+  assert.equal(fechaValida("2026-10-14 10:60"), false);
+  assert.equal(fechaValida("2026-10-14T10:00"), false); // formato del input, sin convertir
+  assert.equal(fechaValida(""), false);
+  assert.equal(fechaValida(undefined), false);
 });

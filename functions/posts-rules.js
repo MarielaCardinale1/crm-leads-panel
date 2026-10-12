@@ -102,6 +102,15 @@ function buildPostPrompt(slot) {
   return { system, user };
 }
 
+/** "YYYY-MM-DD HH:MM" con fecha y hora reales (no acepta 31 de febrero ni 25:00). */
+function fechaValida(f) {
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(String(f || ""));
+  if (!m) return false;
+  const [y, mo, d, h, mi] = m.slice(1).map(Number);
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d && h <= 23 && mi <= 59;
+}
+
 function cut(s, n) {
   const t = String(s || "").trim();
   return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t;
@@ -154,4 +163,4 @@ function parsePin(raw) {
 
 const ESTADOS_POST = ["borrador", "aprobado", "publicado", "descartado"];
 
-module.exports = { AGENT, OFERTAS, ANGULOS, ESTADOS_POST, weeklyPlan, nextMonday, isoWeek, buildPostPrompt, parsePost, buildPinPrompt, parsePin, limpiarPin };
+module.exports = { fechaValida, AGENT, OFERTAS, ANGULOS, ESTADOS_POST, weeklyPlan, nextMonday, isoWeek, buildPostPrompt, parsePost, buildPinPrompt, parsePin, limpiarPin };

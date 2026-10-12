@@ -83,7 +83,7 @@ export async function generateWeek(): Promise<{ semana: string; creados: number;
   return call('redactorPosts', { method: 'POST', body: '{}' });
 }
 
-export async function fetchPosts(): Promise<{ posts: Post[] }> {
+export async function fetchPosts(): Promise<{ posts: Post[]; zona?: string }> {
   return call('postsApi', { method: 'GET' });
 }
 

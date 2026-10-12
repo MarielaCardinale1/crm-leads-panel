@@ -21,6 +21,18 @@ function fechaLinda(f: string) {
   return `${DIAS[date.getDay()]} ${d.slice(8, 10)}/${d.slice(5, 7)} · ${h}`;
 }
 
+const CIUDAD: Record<string, string> = { 'America/New_York': 'Nueva York', 'Europe/Madrid': 'Madrid' };
+const ciudadDe = (zona: string) => CIUDAD[zona] || zona.split('/').pop()!.replace(/_/g, ' ');
+
+/** "YYYY-MM-DD HH:MM" ahora mismo en la zona del proyecto (la misma cuenta que usa el Publicador). */
+function ahoraEn(zona: string) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', { timeZone: zona, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(new Date()).map((x) => [x.type, x.value]),
+  );
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+}
+
 const card = 'bg-white dark:bg-[#1C1814] border border-[#E0E0E0] dark:border-[#2E2721] rounded-2xl shadow-xs';
 const btn = 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50';
 const area = 'w-full text-xs sm:text-sm rounded-xl border border-[#F5C9A8] dark:border-[#3D2E22] bg-[#FFF8F0] dark:bg-[#231E19] text-[#1a1a1a] dark:text-[#F5EBE1] p-3 font-ui focus:outline-none focus:ring-2 focus:ring-[#E8610A]/40';
@@ -125,9 +137,10 @@ const PinBloque: React.FC<{
   );
 };
 
-const PostCard: React.FC<{ post: Post; liConectado: boolean; onChanged: () => void; onToast: Props['onToast'] }> = ({ post, liConectado, onChanged, onToast }) => {
+const PostCard: React.FC<{ post: Post; zona: string; liConectado: boolean; onChanged: () => void; onToast: Props['onToast'] }> = ({ post, zona, liConectado, onChanged, onToast }) => {
   const [ig, setIg] = useState(post.instagram);
   const [li, setLi] = useState(post.linkedin);
+  const [fecha, setFecha] = useState(post.fechaPublicacion.replace(' ', 'T'));
   const [busy, setBusy] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const dirty = ig !== post.instagram || li !== post.linkedin;
@@ -136,6 +149,10 @@ const PostCard: React.FC<{ post: Post; liConectado: boolean; onChanged: () => vo
     setIg(post.instagram);
     setLi(post.linkedin);
   }, [post.instagram, post.linkedin]);
+
+  useEffect(() => {
+    setFecha(post.fechaPublicacion.replace(' ', 'T'));
+  }, [post.fechaPublicacion]);
 
   const run = async (key: string, fn: () => Promise<unknown>, ok: string) => {
     setBusy(key);
@@ -159,6 +176,15 @@ const PostCard: React.FC<{ post: Post; liConectado: boolean; onChanged: () => vo
     const f = e.target.files?.[0];
     e.target.value = '';
     if (f) run('media', () => uploadPostMedia(post.id, f), f.type.startsWith('video') ? 'Video subido (sale como Reel)' : 'Foto subida');
+  };
+
+  const fechaCambiada = fecha !== post.fechaPublicacion.replace(' ', 'T');
+  const guardarFecha = () => {
+    const nueva = fecha.replace('T', ' ');
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(nueva)) return onToast('Elegí un día y una hora.', 'error');
+    if (post.estado === 'aprobado' && nueva <= ahoraEn(zona) &&
+      !window.confirm('Esa fecha y hora ya pasaron: el post sale solo en los próximos 15 minutos. ¿Seguro?')) return;
+    run('fecha', () => updatePost(post.id, { fechaPublicacion: nueva }), 'Fecha guardada');
   };
 
   const copy = async (t: string, red: string) => {
@@ -222,6 +248,21 @@ const PostCard: React.FC<{ post: Post; liConectado: boolean; onChanged: () => vo
 
           <PinBloque post={post} editable={post.estado !== 'descartado'} busy={busy} run={run} copy={copy} />
 
+          {editable && (
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs font-semibold text-[#1a1a1a] dark:text-[#F5EBE1]" htmlFor={`fecha-${post.id}`}>
+                Día y hora de salida <span className="font-normal text-[#666] dark:text-[#99897A]">(hora de {ciudadDe(zona)})</span>
+              </label>
+              <input id={`fecha-${post.id}`} type="datetime-local" step={900} value={fecha} onChange={(e) => setFecha(e.target.value)}
+                className="text-xs rounded-lg border border-[#F5C9A8] dark:border-[#3D2E22] bg-[#FFF8F0] dark:bg-[#231E19] text-[#1a1a1a] dark:text-[#F5EBE1] px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#E8610A]/40" />
+              {fechaCambiada && (
+                <button disabled={!!busy} onClick={guardarFecha} className={`${btn} bg-[#1a1a1a] text-white`}>
+                  {busy === 'fecha' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Guardar fecha
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1">
             <EstadoRed red="Instagram" pub={post.publicacion?.instagram} elegida={post.redes?.includes('instagram')} />
             {post.redes?.includes('linkedin') && <EstadoRed red="LinkedIn" pub={post.publicacion?.linkedin} elegida sinConexion={!liConectado} />}
@@ -274,6 +315,7 @@ const PostCard: React.FC<{ post: Post; liConectado: boolean; onChanged: () => vo
 /** Vista "Redes": borradores del Redactor de posts (CM 7a). Nada se publica desde acá. */
 export const PostsPanel: React.FC<Props> = ({ onToast }) => {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [zona, setZona] = useState('Europe/Madrid');
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -297,8 +339,9 @@ export const PostsPanel: React.FC<Props> = ({ onToast }) => {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const { posts } = await fetchPosts();
+      const { posts, zona } = await fetchPosts();
       setPosts(posts || []);
+      if (zona) setZona(zona);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -369,7 +412,7 @@ export const PostsPanel: React.FC<Props> = ({ onToast }) => {
             {posts
               .filter((p) => p.semana === s)
               .sort((a, b) => a.fechaPublicacion.localeCompare(b.fechaPublicacion))
-              .map((p) => <PostCard key={p.id} post={p} liConectado={!!liEstado?.conectado} onChanged={load} onToast={onToast} />)}
+              .map((p) => <PostCard key={p.id} post={p} zona={zona} liConectado={!!liEstado?.conectado} onChanged={load} onToast={onToast} />)}
           </section>
         ))
       )}
