@@ -88,7 +88,7 @@ export async function fetchPosts(): Promise<{ posts: Post[]; zona?: string; face
   return call('postsApi', { method: 'GET' });
 }
 
-export async function updatePost(id: string, patch: Partial<Pick<Post, 'instagram' | 'linkedin' | 'facebook' | 'estado' | 'fechaPublicacion' | 'redes'>> & { pinterest?: { titulo: string; descripcion: string }; pinterestHecho?: boolean }): Promise<{ ok: boolean }> {
+export async function updatePost(id: string, patch: Partial<Pick<Post, 'instagram' | 'linkedin' | 'facebook' | 'estado' | 'fechaPublicacion' | 'redes'>> & { pinterest?: { titulo: string; descripcion: string }; pinterestHecho?: boolean; reintentar?: 'instagram' | 'linkedin' | 'facebook' }): Promise<{ ok: boolean }> {
   return call('postsApi', { method: 'POST', body: JSON.stringify({ id, ...patch }) });
 }
 

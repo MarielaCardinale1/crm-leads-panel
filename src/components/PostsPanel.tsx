@@ -37,7 +37,7 @@ const card = 'bg-white dark:bg-[#1C1814] border border-[#E0E0E0] dark:border-[#2
 const btn = 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50';
 const area = 'w-full text-xs sm:text-sm rounded-xl border border-[#F5C9A8] dark:border-[#3D2E22] bg-[#FFF8F0] dark:bg-[#231E19] text-[#1a1a1a] dark:text-[#F5EBE1] p-3 font-ui focus:outline-none focus:ring-2 focus:ring-[#E8610A]/40';
 
-const EstadoRed: React.FC<{ red: string; pub?: Publicacion; elegida?: boolean; sinConexion?: boolean }> = ({ red, pub, elegida, sinConexion }) => {
+const EstadoRed: React.FC<{ red: string; pub?: Publicacion; elegida?: boolean; sinConexion?: boolean; onReintentar?: () => void }> = ({ red, pub, elegida, sinConexion, onReintentar }) => {
   if (!elegida) return null;
   const Icon = red === 'Instagram' ? Instagram : red === 'Facebook' ? Facebook : Linkedin;
   if (pub?.ok)
@@ -49,7 +49,10 @@ const EstadoRed: React.FC<{ red: string; pub?: Publicacion; elegida?: boolean; s
   if (pub?.error)
     return (
       <p className="flex items-start gap-1.5 text-xs text-rose-700 dark:text-rose-300">
-        <AlertTriangle className="w-4 h-4 shrink-0" /> {red}: {pub.error} (intento {pub.intentos || 1} de 3)
+        <AlertTriangle className="w-4 h-4 shrink-0" />
+        <span>{red}: {pub.error} (intento {pub.intentos || 1} de 3)
+          {onReintentar && <button onClick={onReintentar} className="ml-2 underline font-semibold hover:no-underline">Reintentar</button>}
+        </span>
       </p>
     );
   if (sinConexion) return <p className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300"><Icon className="w-4 h-4" /> {red} sin conectar: no sale solo.</p>;
@@ -283,8 +286,8 @@ const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; li
           )}
 
           <div className="space-y-1">
-            <EstadoRed red="Instagram" pub={post.publicacion?.instagram} elegida={post.redes?.includes('instagram')} />
-            <EstadoRed red="Facebook" pub={post.publicacion?.facebook} elegida={post.redes?.includes('facebook')} />
+            <EstadoRed red="Instagram" pub={post.publicacion?.instagram} elegida={post.redes?.includes('instagram')} onReintentar={() => run('retry', () => updatePost(post.id, { reintentar: 'instagram' }), 'Se vuelve a intentar en Instagram (en unos minutos)')} />
+            <EstadoRed red="Facebook" pub={post.publicacion?.facebook} elegida={post.redes?.includes('facebook')} onReintentar={() => run('retry', () => updatePost(post.id, { reintentar: 'facebook' }), 'Se vuelve a intentar en Facebook (en unos minutos)')} />
             {post.redes?.includes('linkedin') && <EstadoRed red="LinkedIn" pub={post.publicacion?.linkedin} elegida sinConexion={!liConectado} />}
             {post.estado === 'aprobado' && <p className="text-xs text-emerald-700 dark:text-emerald-300">Sale solo el {fechaLinda(post.fechaPublicacion)}.</p>}
           </div>

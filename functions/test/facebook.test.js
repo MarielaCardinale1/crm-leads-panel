@@ -35,9 +35,15 @@ test("Video: usa file_url y description", async () => {
   assert.equal(body.get("description"), "Mira");
 });
 
-test("Error de permiso: explica qué hacer, en castellano", async () => {
+test("Error de permiso: lo explica en castellano y suma lo que dijo Meta", async () => {
   await conFetch(async () => respuesta(403, { error: { code: 200, message: "(#200) Requires pages_manage_posts permission" } }), async () => {
-    await assert.rejects(fb.publicarFoto("1", "T", { url: "u", mensaje: "m" }), /pages_manage_posts.*Guardar token Instagram/s);
+    await assert.rejects(fb.publicarFoto("1", "T", { url: "u", mensaje: "m" }), /permiso para publicar en la Página.*pages_manage_posts.*Meta dice/s);
+  });
+});
+
+test("El error muestra lo que dijo Meta, para poder distinguir la causa", async () => {
+  await conFetch(async () => respuesta(403, { error: { code: 200, message: "(#200) Requires pages_manage_posts permission to manage the object" } }), async () => {
+    await assert.rejects(fb.publicarFoto("1", "T", { url: "u", mensaje: "m" }), /Meta dice: \(#200\) Requires pages_manage_posts permission to manage the object/);
   });
 });
 
@@ -53,6 +59,12 @@ test("Texto de Facebook: usa el propio, o el de Instagram sin hashtags y con el 
   assert.ok(!viejo.includes("#"));
   assert.ok(viejo.endsWith("https://viajahoytips.com/zion"));
   assert.ok(publisher.textoFacebook({ facebook: "x".repeat(5000) }).length <= 2000);
+  // Sin el llamado propio de Instagram
+  const ig = "¿Planeás tu viaje a Glacier? Te contamos todo. Consultá la guía.\n\nSi necesitás más detalles, escribinos por DM o visitá el link en nuestra bio.\n\n#Glacier #Viaje";
+  const fbTexto = publisher.textoFacebook({ instagram: ig, url: "https://viajahoytips.com/glacier" });
+  assert.ok(!/\bbio\b|\bDM\b/.test(fbTexto), fbTexto);
+  assert.ok(fbTexto.includes("Te contamos todo.") && fbTexto.includes("Consultá la guía."));
+  assert.ok(fbTexto.endsWith("https://viajahoytips.com/glacier"));
 });
 
 test("Facebook se publica solo si está activo; y se pasa a 'publicado' recién cuando salieron todas las redes", () => {
