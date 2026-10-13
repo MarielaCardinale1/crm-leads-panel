@@ -76,7 +76,7 @@ export interface Post {
   redes: ('instagram' | 'linkedin' | 'facebook')[];
   media: { tipo: 'placa' | 'foto' | 'video'; url: string; path: string };
   estado: EstadoPost;
-  publicacion?: { instagram?: Publicacion; linkedin?: Publicacion; facebook?: Publicacion; pinterest?: Publicacion & { manual?: boolean } };
+  publicacion?: { instagram?: Publicacion; linkedin?: Publicacion; facebook?: Publicacion; pinterest?: Publicacion & { manual?: boolean }; youtube?: Publicacion & { manual?: boolean } };
   pinterest?: { titulo: string; descripcion: string; url?: string; path?: string } | null;
 }
 
@@ -88,7 +88,7 @@ export async function fetchPosts(): Promise<{ posts: Post[]; zona?: string; face
   return call('postsApi', { method: 'GET' });
 }
 
-export async function updatePost(id: string, patch: Partial<Pick<Post, 'instagram' | 'linkedin' | 'facebook' | 'estado' | 'fechaPublicacion' | 'redes'>> & { pinterest?: { titulo: string; descripcion: string }; pinterestHecho?: boolean; reintentar?: 'instagram' | 'linkedin' | 'facebook' }): Promise<{ ok: boolean }> {
+export async function updatePost(id: string, patch: Partial<Pick<Post, 'instagram' | 'linkedin' | 'facebook' | 'estado' | 'fechaPublicacion' | 'redes'>> & { pinterest?: { titulo: string; descripcion: string }; pinterestHecho?: boolean; youtubeHecho?: boolean; reintentar?: 'instagram' | 'linkedin' | 'facebook' }): Promise<{ ok: boolean }> {
   return call('postsApi', { method: 'POST', body: JSON.stringify({ id, ...patch }) });
 }
 
