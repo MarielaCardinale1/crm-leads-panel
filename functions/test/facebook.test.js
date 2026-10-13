@@ -35,6 +35,44 @@ test("Video: usa file_url y description", async () => {
   assert.equal(body.get("description"), "Mira");
 });
 
+test("Reel: abre la subida, pasa el link público del video y publica, en ese orden", async () => {
+  const llamadas = [];
+  await conFetch(async (url, opts) => {
+    url = String(url);
+    llamadas.push({ url, body: opts.body instanceof URLSearchParams ? Object.fromEntries(opts.body) : opts.body, headers: opts.headers });
+    if (url.endsWith("/video_reels") && llamadas.length === 1) return respuesta(200, { video_id: "777", upload_url: "https://rupload.facebook.com/video-upload/v21.0/777" });
+    if (url.includes("rupload.facebook.com")) return respuesta(200, { success: true });
+    return respuesta(200, { success: true });
+  }, async () => {
+    const r = await fb.publicarReel("467204289813367", "TOKEN", { url: "https://x/v.mp4", mensaje: "Mira" });
+    assert.equal(r.url, "https://www.facebook.com/reel/777");
+  });
+  assert.equal(llamadas.length, 3);
+  assert.match(llamadas[0].url, /\/467204289813367\/video_reels$/);
+  assert.equal(llamadas[0].body.upload_phase, "start");
+  assert.match(llamadas[1].url, /rupload\.facebook\.com\/video-upload\/v21\.0\/777$/);
+  assert.equal(llamadas[1].headers.file_url, "https://x/v.mp4");
+  assert.equal(llamadas[1].headers.Authorization, "OAuth TOKEN");
+  assert.equal(llamadas[2].body.upload_phase, "finish");
+  assert.equal(llamadas[2].body.video_id, "777");
+  assert.equal(llamadas[2].body.video_state, "PUBLISHED");
+  assert.equal(llamadas[2].body.description, "Mira");
+});
+
+test("Reel: si Facebook no puede leer el video, lo dice y no publica", async () => {
+  let publico = false;
+  await conFetch(async (url, opts) => {
+    url = String(url);
+    if (url.endsWith("/video_reels") && opts.body.get("upload_phase") === "start") return respuesta(200, { video_id: "9", upload_url: "https://rupload.facebook.com/video-upload/v21.0/9" });
+    if (url.includes("rupload")) return respuesta(400, { error: { message: "Video file is not in a supported format" } });
+    publico = true;
+    return respuesta(200, { success: true });
+  }, async () => {
+    await assert.rejects(fb.publicarReel("1", "T", { url: "u", mensaje: "m" }), /supported format/);
+  });
+  assert.equal(publico, false);
+});
+
 test("Error de permiso: lo explica en castellano y suma lo que dijo Meta", async () => {
   await conFetch(async () => respuesta(403, { error: { code: 200, message: "(#200) Requires pages_manage_posts permission" } }), async () => {
     await assert.rejects(fb.publicarFoto("1", "T", { url: "u", mensaje: "m" }), /permiso para publicar en la Página.*pages_manage_posts.*Meta dice/s);
