@@ -355,6 +355,7 @@ exports.postsApi = feature("redes") && wrap("postsApi", async (req, res, user) =
     // Reintentar una red que falló: se borra su estado y el Publicador la vuelve a intentar (si el post está aprobado y su hora ya pasó).
     if (["instagram", "linkedin", "facebook"].includes(b.reintentar)) patch[`publicacion.${b.reintentar}`] = admin.firestore.FieldValue.delete();
     if (b.pinterestHecho === true) patch["publicacion.pinterest"] = { ok: true, manual: true, at: Date.now() };
+    if (b.youtubeHecho === true) patch["publicacion.youtube"] = { ok: true, manual: true, at: Date.now() };
     const doc = await ref.doc(id).get();
     if (!doc.exists) return res.status(404).json({ agent: "postsApi", error: "No encontré ese post." });
     // Al sumar Facebook a un post que no tiene su texto, se arma del de Instagram (sin hashtags y con el link).

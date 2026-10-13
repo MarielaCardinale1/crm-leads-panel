@@ -140,6 +140,53 @@ const PinBloque: React.FC<{
   );
 };
 
+/** YouTube Shorts: provisional, se sube a mano (bajar video, copiar título y descripción). El texto sale del de Instagram. */
+const YtBloque: React.FC<{
+  post: Post;
+  editable: boolean;
+  busy: string | null;
+  run: (key: string, fn: () => Promise<unknown>, ok: string) => Promise<void>;
+  copy: (t: string, red: string) => Promise<void>;
+}> = ({ post, editable, busy, run, copy }) => {
+  if (post.media?.tipo !== 'video') return null;
+  const base = (post.instagram || '').replace(/#\S+/g, '').replace(/\n{3,}/g, '\n\n').trim();
+  const titulo = `${(post.placa?.titulo || '').slice(0, 88).trim()} #Shorts`;
+  const desc = `${base}\n\n${post.url}\n\n#Shorts`.slice(0, 4900);
+  const hecho = post.publicacion?.youtube?.ok;
+  const bajar = () => {
+    const a = document.createElement('a');
+    a.href = post.media.url;
+    a.download = `short-${post.etiqueta.toLowerCase().replace(/\s+/g, '-')}.mp4`;
+    a.target = '_blank';
+    a.click();
+  };
+  return (
+    <div className="rounded-xl border border-[#F5C9A8]/60 dark:border-[#3D2E22] p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <Upload className="w-4 h-4 text-[#E8610A]" />
+        <span className="text-xs font-semibold text-[#1a1a1a] dark:text-[#F5EBE1]">YouTube Shorts</span>
+        {hecho ? <span className="text-[11px] text-sky-700 dark:text-sky-300">subido ✓</span> : <span className="text-[11px] text-[#999]">a mano (provisional)</span>}
+      </div>
+      <div className="flex gap-2 items-center">
+        <input className={area} readOnly value={titulo} />
+        <button onClick={() => copy(titulo, 'YouTube (título)')} className="text-[#666] hover:text-[#E8610A]" title="Copiar título"><Copy className="w-4 h-4" /></button>
+      </div>
+      <div className="flex gap-2 items-start">
+        <textarea className={area} rows={4} readOnly value={desc} />
+        <button onClick={() => copy(desc, 'YouTube (descripción)')} className="text-[#666] hover:text-[#E8610A] mt-2" title="Copiar descripción"><Copy className="w-4 h-4" /></button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button onClick={bajar} className={`${btn} border border-[#E0E0E0] dark:border-[#3D2E22]`}><Download className="w-4 h-4" /> Bajar video</button>
+        <a href="https://studio.youtube.com/" target="_blank" rel="noreferrer" className={`${btn} border border-[#E0E0E0] dark:border-[#3D2E22]`}><ExternalLink className="w-4 h-4" /> Abrir YouTube Studio</a>
+        {editable && !hecho && (
+          <button disabled={!!busy} onClick={() => run('ytok', () => updatePost(post.id, { youtubeHecho: true }), 'Marcado como subido a YouTube')}
+            className={`${btn} bg-[#FF0000] text-white hover:bg-[#cc0000]`}><Check className="w-4 h-4" /> Ya lo subí</button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; liConectado: boolean; onChanged: () => void; onToast: Props['onToast'] }> = ({ post, zona, facebookActivo, liConectado, onChanged, onToast }) => {
   const [ig, setIg] = useState(post.instagram);
   const [li, setLi] = useState(post.linkedin);
@@ -261,6 +308,7 @@ const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; li
           </div>}
 
           <PinBloque post={post} editable={post.estado !== 'descartado'} busy={busy} run={run} copy={copy} />
+          <YtBloque post={post} editable={post.estado !== 'descartado'} busy={busy} run={run} copy={copy} />
 
           {editable && (
             <div className="flex flex-wrap items-center gap-2">
