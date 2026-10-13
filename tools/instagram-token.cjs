@@ -67,6 +67,21 @@ async function paginasDeEmpresas(token) {
   }
   if (!page) throw new Error("Numero invalido. No se guardo nada.");
   if (!page.instagram_business_account) throw new Error(`La pagina "${page.name}" no tiene un Instagram profesional vinculado. Vincularlo en Facebook y repetir. No se guardo nada.`);
+  // Antes de guardar: revisar que la clave de la página tenga los permisos que usa el Publicador.
+  const NECESARIOS = ["pages_show_list", "pages_read_engagement", "pages_manage_posts", "instagram_basic", "instagram_content_publish"];
+  try {
+    const dbg = await get(`${G}/debug_token?input_token=${encodeURIComponent(page.access_token)}&access_token=${encodeURIComponent(`${appId}|${secret}`)}`);
+    const tiene = new Set(dbg.data?.scopes || []);
+    console.log(`\nPermisos de la clave de "${page.name}": ${[...tiene].join(", ") || "(ninguno)"}`);
+    const faltan = NECESARIOS.filter((x) => !tiene.has(x));
+    if (faltan.length) {
+      throw new Error(`A esta clave le faltan permisos: ${faltan.join(", ")}.\n  Volve al Explorador de Meta, agrega esos permisos en "Agregar un permiso" (abajo tiene que decir ${NECESARIOS.length + 1} opciones o mas), apreta Generate Access Token, acepta lo que Meta pregunte y corre este archivo de nuevo.\n  No se guardo nada.`);
+    }
+    console.log("OK: la clave tiene todos los permisos necesarios.");
+  } catch (e) {
+    if (/faltan permisos/.test(e.message)) throw e;
+    console.log(`(No pude verificar los permisos: ${e.message}. Se sigue igual.)`);
+  }
   let proyecto = "(no encontrado: .firebaserc)";
   try { proyecto = JSON.parse(fs.readFileSync(".firebaserc", "utf8")).projects.default; } catch {}
   console.log(`\nSe va a guardar la clave de "${page.name}" en el proyecto de Firebase: ${proyecto}`);
