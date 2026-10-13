@@ -518,7 +518,7 @@ async function publicarEnFacebook(post, token) {
   const intentos = (prev.intentos || 0) + 1;
   try {
     const datos = { url: post.media.url, mensaje: publisher.textoFacebook(post) };
-    const r = post.media.tipo === "video" ? await fb.publicarVideo(FB_PAGE_ID, token, datos) : await fb.publicarFoto(FB_PAGE_ID, token, datos);
+    const r = post.media.tipo === "video" ? await fb.publicarReel(FB_PAGE_ID, token, datos) : await fb.publicarFoto(FB_PAGE_ID, token, datos);
     return { ok: true, id: r.id, url: r.url, at: Date.now(), intentos };
   } catch (error) {
     return { ok: false, intentos, error: error.message, at: Date.now() };

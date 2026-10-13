@@ -35,4 +35,29 @@ async function publicarVideo(pageId, token, { url, mensaje }) {
   return { id: d.id, url: `https://www.facebook.com/${d.id}` };
 }
 
-module.exports = { publicarFoto, publicarVideo, mensajeDeError };
+const RUPLOAD = "https://rupload.facebook.com/video-upload/v21.0";
+
+/**
+ * Video vertical corto como Reel de la Página (API de Reels, 3 pasos):
+ * 1) abrir la subida, 2) pasarle el link público del video, 3) publicar.
+ * Facebook lo procesa después; el Reel aparece en la Página en unos minutos.
+ * Requisitos de Facebook: MP4 vertical (9:16), de 3 a 90 segundos.
+ */
+async function publicarReel(pageId, token, { url, mensaje }) {
+  const inicio = await postear(`${pageId}/video_reels`, { upload_phase: "start", access_token: token });
+  if (!inicio.video_id) throw new Error("Facebook no abrió la subida del Reel.");
+  const subida = await fetch(inicio.upload_url || `${RUPLOAD}/${inicio.video_id}`, {
+    method: "POST",
+    headers: { Authorization: `OAuth ${token}`, file_url: url },
+  });
+  const dSubida = await subida.json().catch(() => ({}));
+  if (!subida.ok || dSubida.error || dSubida.success === false) {
+    throw new Error(mensajeDeError(dSubida.error) || `Facebook no pudo leer el video (${subida.status}).`);
+  }
+  await postear(`${pageId}/video_reels`, {
+    upload_phase: "finish", video_id: inicio.video_id, video_state: "PUBLISHED", description: mensaje, access_token: token,
+  });
+  return { id: inicio.video_id, url: `https://www.facebook.com/reel/${inicio.video_id}` };
+}
+
+module.exports = { publicarFoto, publicarVideo, publicarReel, mensajeDeError };
