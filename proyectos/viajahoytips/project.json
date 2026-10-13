@@ -65,6 +65,31 @@
       "key": "grand teton",
       "etiqueta": "Grand Teton",
       "url": "https://viajahoytips.com/grand-teton"
+    },
+    {
+      "key": "gran cañón",
+      "etiqueta": "Gran Cañón",
+      "url": "https://viajahoytips.com/gran-canon"
+    },
+    {
+      "key": "great smoky mountains",
+      "etiqueta": "Great Smoky Mountains",
+      "url": "https://viajahoytips.com/great-smoky-mountains"
+    },
+    {
+      "key": "joshua tree",
+      "etiqueta": "Joshua Tree",
+      "url": "https://viajahoytips.com/joshua-tree"
+    },
+    {
+      "key": "acadia",
+      "etiqueta": "Acadia",
+      "url": "https://viajahoytips.com/acadia"
+    },
+    {
+      "key": "olympic",
+      "etiqueta": "Olympic",
+      "url": "https://viajahoytips.com/olympic"
     }
   ],
   "hechos": {
@@ -104,6 +129,39 @@
       "Grand Teton se entra sin reserva, pagando la tarifa de entrada.",
       "Los permisos que sí existen son por actividad, sobre todo el de camping en backcountry.",
       "La guía de ViajaHoyTips tiene tarifas 2026, senderos, fauna y cómo combinarlo con Yellowstone."
+    ],
+    "acadia": [
+      "Cadillac Summit Road pide reserva de vehículo del 20 de mayo al 25 de octubre: cuesta 6 USD por vehículo y va con franja horaria.",
+      "El 30 % de los cupos sale 90 días antes y el 70 % restante dos días antes, siempre a las 10 de la mañana hora del este. Subir a pie o en bici no necesita reserva.",
+      "Los senderos Precipice, Jordan Cliffs y Valley Cove cierran cada primavera desde el 1 de marzo por los halcones peregrinos; suelen reabrir hacia agosto, pero la fecha no es fija.",
+      "El Island Explorer no cobra boleto, pero igual hace falta el pase de entrada al parque.",
+      "No existe el acampe libre: todo pernocte se reserva en Recreation.gov con seis meses de anticipación.",
+      "La guía de ViajaHoyTips tiene senderos, avisos del parque y planificación."
+    ],
+    "olympic": [
+      "Los campings Hoh, Kalaloch, Sol Duc y Fairholme piden reserva en Recreation.gov solo en temporada alta; fuera de esas fechas es por orden de llegada.",
+      "En 2026 Hoh pide reserva del 12 de junio al 6 de septiembre y Kalaloch, del 15 de mayo al 20 de septiembre.",
+      "Sol Duc pide reserva del 20 de marzo al 1 de noviembre, con hasta seis meses de anticipación; Fairholme, del 15 de mayo al 29 de septiembre.",
+      "Acampar en la zona agreste requiere permiso: 8 USD por persona y noche más 6 USD de cargo de reserva.",
+      "La guía de ViajaHoyTips tiene el bosque lluvioso, las playas, los campings y los itinerarios."
+    ],
+    "great smoky mountains": [
+      "Los campings del parque, como Elkmont, se reservan en Recreation.gov; los de verano conviene reservarlos con al menos seis meses de anticipación.",
+      "Elkmont es el más grande y popular y es el centro del espectáculo de luciérnagas sincrónicas de junio, al que se accede por lotería.",
+      "Dormir en los refugios del Appalachian Trail dentro del parque requiere permiso previo.",
+      "La guía de ViajaHoyTips tiene senderos, campings, osos negros y luciérnagas."
+    ],
+    "joshua tree": [
+      "Jumbo Rocks, el camping más popular del parque, se reserva por Recreation.gov y se agota con seis meses de anticipación en temporada alta (de octubre a mayo).",
+      "Hidden Valley funciona por orden de llegada: en temporada alta hay que llegar temprano, un miércoles o jueves, para registrar un sitio que se libere.",
+      "Jumbo Rocks no tiene agua corriente ni tomas eléctricas.",
+      "La guía de ViajaHoyTips tiene campings, escalada, fauna del desierto y cielos estrellados."
+    ],
+    "gran cañón": [
+      "Mather Campground, en el South Rim, se reserva en Recreation.gov con hasta seis meses de anticipación para el verano.",
+      "El camping del North Rim abre solo del 15 de mayo al 15 de octubre y también se reserva por Recreation.gov.",
+      "Las cascadas turquesas de Havasu Falls están en la reserva Havasupai, no en el parque: se necesita un permiso tribal aparte.",
+      "La guía de ViajaHoyTips tiene hitos con GPS, alertas de senderos, seguridad, fauna y presupuesto."
     ]
   }
 }
