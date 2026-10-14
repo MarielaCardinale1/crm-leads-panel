@@ -16,6 +16,9 @@ import { exportLeadsToCSV } from './utils/csvExport';
 import { ThemeMode, getInitialTheme, applyTheme } from './utils/themeUtils';
 import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
 
+// Escritorio de mando local (mayo–junio 2026). Vive en la PC, no en la web.
+const SISTEMA_LABORAL = 'file:///C:/Users/mama/Documents/Codex/2026-05-27/necesito-que-me-ayudes-a-organizar/sistema-laboral/index.html';
+
 const EMPTY_FILTERS: FilterState = { searchQuery: '', prioridad: 'all', estado: 'all' };
 const PRIORITY_ORDER = { Alta: 0, Media: 1, Baja: 2 } as const;
 
@@ -285,6 +288,29 @@ export default function App() {
             </button>
           ))}
         </div>
+
+        {hasFeature('redes') && (
+          <div className="flex flex-wrap gap-2 text-xs font-semibold font-heading">
+            <span className="self-center text-[#999] dark:text-[#7A6B5D]">Mis accesos:</span>
+            <a href="https://viajahoytips-leads.web.app/" target="_blank" rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-lg border border-[#E0E0E0] dark:border-[#2E2721] bg-white dark:bg-[#1C1814] hover:border-[#E8610A]">
+              Panel ViajaHoyTips
+            </a>
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(SISTEMA_LABORAL);
+                  showToast('Dirección copiada: abrí una pestaña nueva, pegala (Ctrl+V) y Enter', 'info');
+                } catch {
+                  showToast(`Pegá esto en una pestaña nueva: ${SISTEMA_LABORAL}`, 'info');
+                }
+              }}
+              title="El navegador no deja abrir archivos de tu PC desde una web: copia la dirección para pegarla"
+              className="px-3 py-1.5 rounded-lg border border-[#E0E0E0] dark:border-[#2E2721] bg-white dark:bg-[#1C1814] hover:border-[#E8610A]">
+              Sistema laboral (copiar dirección)
+            </button>
+          </div>
+        )}
 
         {tab === 'redes' && hasFeature('redes') ? <PostsPanel onToast={showToast} /> : (<>
         <StatCards stats={stats} />
