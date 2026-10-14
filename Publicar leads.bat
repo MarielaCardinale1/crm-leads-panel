@@ -23,7 +23,7 @@ echo.
 echo Publicando panel y funciones (codebase leads)...
 call npx --yes firebase-tools deploy --only hosting:leads,functions:leads || goto :error
 echo.
-echo Listo: https://marielacardinale-leads.web.app
+echo Listo. Abri el panel de este proyecto y recargalo con Ctrl+F5.
 pause
 exit /b 0
 
