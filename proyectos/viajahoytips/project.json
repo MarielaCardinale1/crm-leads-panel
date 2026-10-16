@@ -33,7 +33,8 @@
       "Qué conviene resolver con anticipación y qué no hace falta."
     ],
     "pinRegla": "Pinterest funciona como buscador: pinterest.titulo de máximo 90 caracteres con la palabra clave al principio (ej. \"Zion 2026: cómo conseguir el permiso de Angels Landing\"); pinterest.descripcion de 200 a 450 caracteres, natural, con 2-3 búsquedas reales que haría un residente hispano en EE.UU. planificando su viaje, sin hashtags y sin el link (el link va aparte).",
-    "fbPageId": "467204289813367"
+    "fbPageId": "467204289813367",
+    "youtubeApi": true
   },
   "ofertasRedes": [
     {

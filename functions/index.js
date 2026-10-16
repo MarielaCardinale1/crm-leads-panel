@@ -10,6 +10,7 @@
  * - postsApi / postsMedia → ver, editar, aprobar posts y subir foto/video propio
  * - publicador / publicarAhora → microagente Publicador (CM 7b): sube a Instagram y LinkedIn lo aprobado
  * - linkedinConectar / linkedinCallback → conectar LinkedIn (dura 60 días)
+ * - youtubeConectar / youtubeCallback / youtubeSubir → subir un video a YouTube (privado) por API, solo si el perfil tiene youtubeApi
  * - prospectorSemanal / prospectorApi → agente 8 Prospector: busca negocios en Google Maps y los carga como leads
  */
 const { onRequest } = require("firebase-functions/v2/https");
@@ -328,7 +329,7 @@ exports.postsApi = feature("redes") && wrap("postsApi", async (req, res, user) =
   const ref = postsRef(user.uid);
   if (req.method === "GET") {
     const snap = await ref.orderBy("fechaPublicacion", "desc").limit(60).get();
-    return res.json({ posts: snap.docs.map((d) => ({ id: d.id, ...d.data() })), zona: brand.horario.zona, facebook: CON_FACEBOOK });
+    return res.json({ posts: snap.docs.map((d) => ({ id: d.id, ...d.data() })), zona: brand.horario.zona, facebook: CON_FACEBOOK, youtube: CON_YOUTUBE });
   }
   if (req.method === "POST") {
     const b = req.body || {};
@@ -431,6 +432,13 @@ const LINKEDIN_CLIENT_ID = CON_LINKEDIN ? defineSecret("LINKEDIN_CLIENT_ID") : n
 const LINKEDIN_CLIENT_SECRET = CON_LINKEDIN ? defineSecret("LINKEDIN_CLIENT_SECRET") : null;
 const li = require("./linkedin");
 const fb = require("./facebook");
+// Igual que LinkedIn: sin "youtubeApi" en el perfil no se declaran sus claves ni sus funciones.
+const CON_YOUTUBE = feature("redes") && !!brand.youtubeApi;
+const YOUTUBE_CLIENT_ID = CON_YOUTUBE ? defineSecret("YOUTUBE_CLIENT_ID") : null;
+const YOUTUBE_CLIENT_SECRET = CON_YOUTUBE ? defineSecret("YOUTUBE_CLIENT_SECRET") : null;
+const yt = require("./youtube");
+const YT_REDIRECT = `https://us-central1-${process.env.GCLOUD_PROJECT || "gen-lang-client-0047460717"}.cloudfunctions.net/youtubeCallback`;
+const ytRef = (uid) => db.collection("crmYoutube").doc(uid);
 const LI_REDIRECT = `https://us-central1-${process.env.GCLOUD_PROJECT || "gen-lang-client-0047460717"}.cloudfunctions.net/linkedinCallback`;
 const PANEL_URL = brand.panelUrl;
 const liRef = (uid) => db.collection("crmLinkedin").doc(uid);
@@ -638,6 +646,70 @@ exports.linkedinCallback = onRequest({ region: "us-central1", secrets: [LINKEDIN
     volver("error");
   }
 });
+}
+
+if (CON_YOUTUBE) {
+// ── YouTube: conectar y subir videos (siempre PRIVADOS: Google los bloquea hasta auditar el proyecto) ──
+exports.youtubeConectar = wrap("youtube", async (req, res, user) => {
+  if (req.method === "GET") {
+    const d = (await ytRef(user.uid).get()).data();
+    return res.json({ conectado: !!d?.tokenCifrado });
+  }
+  if (req.method !== "POST") return res.status(405).json({ agent: "youtube", error: "Método no permitido." });
+  const state = randomUUID();
+  await ytRef(user.uid).set({ state, stateAt: Date.now() }, { merge: true });
+  res.json({ url: yt.authUrl(YOUTUBE_CLIENT_ID.value(), YT_REDIRECT, state) });
+}, { secrets: [YOUTUBE_CLIENT_ID] });
+
+// Google vuelve acá después de que Mariela acepta. Público, pero solo sirve con un `state` recién creado.
+exports.youtubeCallback = onRequest({ region: "us-central1", secrets: [YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET] }, async (req, res) => {
+  const volver = (r) => res.redirect(`${PANEL_URL}/?youtube=${r}`);
+  try {
+    const { code, state, error } = req.query;
+    if (error || !code || !state) return volver("cancelado");
+    const snap = await db.collection("crmYoutube").where("state", "==", String(state)).limit(1).get();
+    const doc = snap.docs[0];
+    if (!doc || Date.now() - (doc.data().stateAt || 0) > 15 * 60 * 1000) return volver("vencido");
+    const { refreshToken } = await yt.canjearCodigo({ code: String(code), clientId: YOUTUBE_CLIENT_ID.value(), clientSecret: YOUTUBE_CLIENT_SECRET.value(), redirectUri: YT_REDIRECT });
+    await doc.ref.set({
+      tokenCifrado: yt.cifrar(refreshToken, YOUTUBE_CLIENT_SECRET.value()),
+      state: admin.firestore.FieldValue.delete(), stateAt: admin.firestore.FieldValue.delete(), conectadoAt: Date.now(),
+    }, { merge: true });
+    logger.info("[youtube] conectado", { uid: doc.id });
+    volver("ok");
+  } catch (e) {
+    logger.error("[youtube] callback falló", { error: e?.message });
+    volver("error");
+  }
+});
+
+// Sube el video de UN post a YouTube como PRIVADO. Solo cuando Mariela toca el botón: no pasa por el Publicador ni cambia el estado del post.
+exports.youtubeSubir = wrap("youtube", async (req, res, user) => {
+  if (req.method !== "POST") return res.status(405).json({ agent: "youtube", error: "Método no permitido." });
+  const id = String(req.body?.id || "").slice(0, 60);
+  const ref = postsRef(user.uid).doc(id);
+  const doc = id ? await ref.get() : null;
+  if (!doc?.exists) return res.status(404).json({ agent: "youtube", error: "No encontré ese post." });
+  const post = doc.data();
+  if (post.media?.tipo !== "video") return res.status(400).json({ agent: "youtube", error: "Este post no tiene video." });
+  if (post.publicacion?.youtubeApi?.ok) return res.status(409).json({ agent: "youtube", error: "Ya lo subí a YouTube (privado)." });
+  const conexion = (await ytRef(user.uid).get()).data();
+  if (!conexion?.tokenCifrado) return res.status(400).json({ agent: "youtube", error: "Primero conectá YouTube." });
+  const intentos = (post.publicacion?.youtubeApi?.intentos || 0) + 1;
+  try {
+    const refreshToken = yt.descifrar(conexion.tokenCifrado, YOUTUBE_CLIENT_SECRET.value());
+    const accessToken = await yt.tokenDeAcceso({ refreshToken, clientId: YOUTUBE_CLIENT_ID.value(), clientSecret: YOUTUBE_CLIENT_SECRET.value() });
+    const [buf] = await admin.storage().bucket().file(post.media.path).download();
+    const out = await yt.subirVideo(accessToken, buf, publisher.textoYoutube(post), post.media.path.endsWith(".mov") ? "video/quicktime" : "video/mp4");
+    const estado = { ok: true, privado: true, id: out.id, url: out.url, at: Date.now(), intentos };
+    await ref.update({ "publicacion.youtubeApi": estado, updatedAt: Date.now() });
+    res.json({ ok: true, youtubeApi: estado });
+  } catch (error) {
+    const estado = { ok: false, intentos, error: error.message, at: Date.now() };
+    await ref.update({ "publicacion.youtubeApi": estado, updatedAt: Date.now() });
+    res.status(502).json({ agent: "youtube", error: error.message });
+  }
+}, { secrets: [YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET], timeoutSeconds: 540, memory: "1GiB" });
 }
 
 // ── Agente 8: Prospector ─────────────────────────────────────────────────

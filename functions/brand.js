@@ -21,6 +21,8 @@ const DEFAULTS = {
   redes: ["instagram", "linkedin"],
   // Id de la Página de Facebook (solo si "facebook" está en redes). No es secreto.
   fbPageId: "",
+  // true = subir los videos a YouTube por API (quedan privados hasta que Google audite el proyecto). Pide las claves YOUTUBE_CLIENT_ID/SECRET.
+  youtubeApi: false,
   // Cuándo salen los posts: días de la semana (1 = lunes), hora y zona horaria.
   horario: { dias: [1, 3, 5], hora: 10, zona: "Europe/Madrid" },
   // null = usar los textos originales de posts-rules.js
