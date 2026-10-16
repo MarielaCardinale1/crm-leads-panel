@@ -76,7 +76,7 @@ export interface Post {
   redes: ('instagram' | 'linkedin' | 'facebook')[];
   media: { tipo: 'placa' | 'foto' | 'video'; url: string; path: string };
   estado: EstadoPost;
-  publicacion?: { instagram?: Publicacion; linkedin?: Publicacion; facebook?: Publicacion; pinterest?: Publicacion & { manual?: boolean }; youtube?: Publicacion & { manual?: boolean } };
+  publicacion?: { instagram?: Publicacion; linkedin?: Publicacion; facebook?: Publicacion; pinterest?: Publicacion & { manual?: boolean }; youtube?: Publicacion & { manual?: boolean }; youtubeApi?: Publicacion & { privado?: boolean; id?: string } };
   pinterest?: { titulo: string; descripcion: string; url?: string; path?: string } | null;
 }
 
@@ -84,7 +84,7 @@ export async function generateWeek(): Promise<{ semana: string; creados: number;
   return call('redactorPosts', { method: 'POST', body: '{}' });
 }
 
-export async function fetchPosts(): Promise<{ posts: Post[]; zona?: string; facebook?: boolean }> {
+export async function fetchPosts(): Promise<{ posts: Post[]; zona?: string; facebook?: boolean; youtube?: boolean }> {
   return call('postsApi', { method: 'GET' });
 }
 
@@ -119,6 +119,20 @@ export async function linkedinStatus(): Promise<{ conectado: boolean; dias: numb
 export async function linkedinConnect(): Promise<void> {
   const { url } = await call<{ url: string }>('linkedinConectar', { method: 'POST', body: '{}' });
   window.location.href = url;
+}
+
+/** YouTube por API: estado de la conexión, conectar y subir el video de un post (queda PRIVADO y bloqueado hasta que Google audite el proyecto). */
+export async function youtubeStatus(): Promise<{ conectado: boolean }> {
+  return call('youtubeConectar', { method: 'GET' });
+}
+
+export async function youtubeConnect(): Promise<void> {
+  const { url } = await call<{ url: string }>('youtubeConectar', { method: 'POST', body: '{}' });
+  window.location.href = url;
+}
+
+export async function youtubeUpload(id: string): Promise<{ ok: boolean }> {
+  return call('youtubeSubir', { method: 'POST', body: JSON.stringify({ id }) });
 }
 
 /** Pinterest: arma el pin (texto + imagen vertical) de un post que todavía no lo tiene. */

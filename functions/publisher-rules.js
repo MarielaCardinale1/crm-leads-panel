@@ -79,6 +79,17 @@ function textoFacebook(post) {
   return `${sinInstagram}\n\n${post.url || ""}`.trim().slice(0, 2000);
 }
 
+/**
+ * YouTube Shorts: título (tope 100, con #Shorts) y descripción (tope 5000) a partir del texto de Instagram.
+ * Es el mismo texto que se muestra en el panel para subirlo a mano.
+ */
+function textoYoutube(post) {
+  const base = String(post.instagram || "").replace(/#\S+/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  const titulo = `${String(post.placa?.titulo || "").slice(0, 88).trim()} #Shorts`.trim();
+  const descripcion = `${base}\n\n${post.url || ""}\n\n#Shorts`.slice(0, 4900);
+  return { titulo, descripcion };
+}
+
 /** ¿Hay que reconectar LinkedIn? (la conexión dura 60 días) */
 function diasLinkedin(expiresAt, now = Date.now()) {
   return expiresAt ? Math.floor((expiresAt - now) / 86400000) : -1;
@@ -90,4 +101,4 @@ function necesitaBordes(width, height) {
   return r < IG_RATIO_MIN || r > IG_RATIO_MAX;
 }
 
-module.exports = { AGENT, REDES, textoFacebook, textoLinkedin, diasLinkedin, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };
+module.exports = { AGENT, REDES, textoFacebook, textoLinkedin, textoYoutube, diasLinkedin, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };

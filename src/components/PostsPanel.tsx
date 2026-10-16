@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Sparkles, Upload, Check, X, Instagram, Linkedin, Facebook, Copy, RotateCcw, Loader2, Send, ExternalLink, AlertTriangle, Pin, Download } from 'lucide-react';
-import { Post, EstadoPost, fetchPosts, generateWeek, updatePost, uploadPostMedia, publishNow, makePin, linkedinStatus, linkedinConnect, Publicacion, MAX_MEDIA_MB } from '../services/leadService';
+import { Post, EstadoPost, fetchPosts, generateWeek, updatePost, uploadPostMedia, publishNow, makePin, linkedinStatus, linkedinConnect, youtubeStatus, youtubeConnect, youtubeUpload, Publicacion, MAX_MEDIA_MB } from '../services/leadService';
 import { hasFeature } from '../firebase-config';
 
 interface Props {
@@ -147,8 +147,10 @@ const YtBloque: React.FC<{
   busy: string | null;
   run: (key: string, fn: () => Promise<unknown>, ok: string) => Promise<void>;
   copy: (t: string, red: string) => Promise<void>;
-}> = ({ post, editable, busy, run, copy }) => {
+  ytApi: boolean;
+}> = ({ post, editable, busy, run, copy, ytApi }) => {
   if (post.media?.tipo !== 'video') return null;
+  const api = post.publicacion?.youtubeApi;
   const base = (post.instagram || '').replace(/#\S+/g, '').replace(/\n{3,}/g, '\n\n').trim();
   const titulo = `${(post.placa?.titulo || '').slice(0, 88).trim()} #Shorts`;
   const desc = `${base}\n\n${post.url}\n\n#Shorts`.slice(0, 4900);
@@ -166,7 +168,9 @@ const YtBloque: React.FC<{
         <Upload className="w-4 h-4 text-[#E8610A]" />
         <span className="text-xs font-semibold text-[#1a1a1a] dark:text-[#F5EBE1]">YouTube Shorts</span>
         {hecho ? <span className="text-[11px] text-sky-700 dark:text-sky-300">subido ✓</span> : <span className="text-[11px] text-[#999]">a mano (provisional)</span>}
+        {api?.ok && <span className="text-[11px] text-amber-700 dark:text-amber-300">subido por API (privado y bloqueado: resubilo desde Studio)</span>}
       </div>
+      {api && !api.ok && api.error && <p className="text-[11px] text-rose-700 dark:text-rose-300">YouTube: {api.error}</p>}
       <div className="flex gap-2 items-center">
         <input className={area} readOnly value={titulo} />
         <button onClick={() => copy(titulo, 'YouTube (título)')} className="text-[#666] hover:text-[#E8610A]" title="Copiar título"><Copy className="w-4 h-4" /></button>
@@ -178,6 +182,13 @@ const YtBloque: React.FC<{
       <div className="flex flex-wrap gap-2">
         <button onClick={bajar} className={`${btn} border border-[#E0E0E0] dark:border-[#3D2E22]`}><Download className="w-4 h-4" /> Bajar video</button>
         <a href="https://studio.youtube.com/" target="_blank" rel="noreferrer" className={`${btn} border border-[#E0E0E0] dark:border-[#3D2E22]`}><ExternalLink className="w-4 h-4" /> Abrir YouTube Studio</a>
+        {editable && ytApi && !api?.ok && (
+          <button disabled={!!busy}
+            onClick={() => window.confirm('Se sube a YouTube como PRIVADO y Google lo deja bloqueado: después hay que resubirlo a mano desde Studio. ¿Subirlo igual?') && run('ytapi', () => youtubeUpload(post.id), 'Subido a YouTube (privado)')}
+            className={`${btn} border border-[#FF0000] text-[#FF0000] hover:bg-[#FF0000]/10`}>
+            {busy === 'ytapi' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Subir a YouTube (privado)
+          </button>
+        )}
         {editable && !hecho && (
           <button disabled={!!busy} onClick={() => run('ytok', () => updatePost(post.id, { youtubeHecho: true }), 'Marcado como subido a YouTube')}
             className={`${btn} bg-[#FF0000] text-white hover:bg-[#cc0000]`}><Check className="w-4 h-4" /> Ya lo subí</button>
@@ -187,7 +198,7 @@ const YtBloque: React.FC<{
   );
 };
 
-const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; liConectado: boolean; onChanged: () => void; onToast: Props['onToast'] }> = ({ post, zona, facebookActivo, liConectado, onChanged, onToast }) => {
+const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; liConectado: boolean; ytApi: boolean; onChanged: () => void; onToast: Props['onToast'] }> = ({ post, zona, facebookActivo, liConectado, ytApi, onChanged, onToast }) => {
   const [ig, setIg] = useState(post.instagram);
   const [li, setLi] = useState(post.linkedin);
   const [fb, setFb] = useState(post.facebook || '');
@@ -308,7 +319,7 @@ const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; li
           </div>}
 
           <PinBloque post={post} editable={post.estado !== 'descartado'} busy={busy} run={run} copy={copy} />
-          <YtBloque post={post} editable={post.estado !== 'descartado'} busy={busy} run={run} copy={copy} />
+          <YtBloque post={post} editable={post.estado !== 'descartado'} busy={busy} run={run} copy={copy} ytApi={ytApi} />
 
           {editable && (
             <div className="flex flex-wrap items-center gap-2">
@@ -388,6 +399,8 @@ export const PostsPanel: React.FC<Props> = ({ onToast }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [zona, setZona] = useState('Europe/Madrid');
   const [facebookActivo, setFacebookActivo] = useState(false);
+  const [ytActivo, setYtActivo] = useState(false);
+  const [ytConectado, setYtConectado] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -408,13 +421,28 @@ export const PostsPanel: React.FC<Props> = ({ onToast }) => {
     }
   };
 
+  useEffect(() => {
+    if (ytActivo) youtubeStatus().then((r) => setYtConectado(r.conectado)).catch(() => setYtConectado(false));
+  }, [ytActivo]);
+
+  const conectarYt = async () => {
+    setConectando(true);
+    try {
+      await youtubeConnect();
+    } catch (e: any) {
+      onToast(e.message, 'error');
+      setConectando(false);
+    }
+  };
+
   const load = useCallback(async () => {
     setError(null);
     try {
-      const { posts, zona, facebook } = await fetchPosts();
+      const { posts, zona, facebook, youtube } = await fetchPosts();
       setPosts(posts || []);
       if (zona) setZona(zona);
       setFacebookActivo(!!facebook);
+      setYtActivo(!!youtube);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -472,6 +500,21 @@ export const PostsPanel: React.FC<Props> = ({ onToast }) => {
         )}
       </div>}
 
+      {ytActivo && <div className={`${card} p-4 flex flex-wrap items-center gap-3`}>
+        <Upload className="w-5 h-5 text-[#FF0000]" />
+        <span className="text-xs sm:text-sm text-[#1a1a1a] dark:text-[#F5EBE1] flex-1">
+          {ytConectado === null ? 'YouTube: revisando conexión…'
+            : ytConectado ? 'YouTube conectado · los videos suben como privados (Google los bloquea hasta auditar el proyecto)'
+              : 'YouTube sin conectar: los Shorts se siguen subiendo a mano.'}
+        </span>
+        {ytConectado !== null && (
+          <button onClick={conectarYt} disabled={conectando} className={`${btn} bg-[#FF0000] text-white hover:bg-[#cc0000]`}>
+            {conectando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {ytConectado ? 'Reconectar YouTube' : 'Conectar YouTube'}
+          </button>
+        )}
+      </div>}
+
       {error && <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-2xl p-4 text-rose-900 dark:text-rose-200 text-sm">{error}</div>}
 
       {loading ? (
@@ -485,7 +528,7 @@ export const PostsPanel: React.FC<Props> = ({ onToast }) => {
             {posts
               .filter((p) => p.semana === s)
               .sort((a, b) => a.fechaPublicacion.localeCompare(b.fechaPublicacion))
-              .map((p) => <PostCard key={p.id} post={p} zona={zona} facebookActivo={facebookActivo} liConectado={!!liEstado?.conectado} onChanged={load} onToast={onToast} />)}
+              .map((p) => <PostCard key={p.id} post={p} zona={zona} facebookActivo={facebookActivo} liConectado={!!liEstado?.conectado} ytApi={!!ytConectado} onChanged={load} onToast={onToast} />)}
           </section>
         ))
       )}
