@@ -31,5 +31,5 @@ test("Perfil sin LinkedIn (con YouTube por API): no declara las de LinkedIn (mó
 test("Perfil por defecto: conserva LinkedIn y todas las funciones", { skip: !fs.existsSync(bin) }, () => {
   const m = manifiesto({ BRAND_SIN_PROYECTO: "1" });
   assert.deepEqual(m.secretos, ["IG_PAGE_TOKEN", "LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET", "OPENAI_API_KEY"]);
-  assert.equal(m.funciones.length, 14);
+  assert.equal(m.funciones.length, 15);
 });

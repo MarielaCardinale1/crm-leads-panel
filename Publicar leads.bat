@@ -1,5 +1,6 @@
 @echo off
 cd /d "%~dp0"
+set CUENTA=mariela.cardinale@gmail.com
 echo ==========================================
 echo  Publicar CRM Leads (panel + funciones)
 echo ==========================================
@@ -17,11 +18,17 @@ rem Siempre: asi se instalan las librerias nuevas de los agentes
 )
 echo Corriendo tests del Lead Scoring...
 call npm test || goto :error
+echo Revisando que la cuenta %CUENTA% este agregada a Firebase...
+call npx --yes firebase-tools login:list | find /i "%CUENTA%" >nul
+if errorlevel 1 (
+  echo No esta. Se va a abrir el navegador: entra con %CUENTA%.
+  call npx --yes firebase-tools login:add %CUENTA% || goto :error
+)
 echo Compilando el panel...
 call npm run build || goto :error
 echo.
 echo Publicando panel y funciones (codebase leads)...
-call npx --yes firebase-tools deploy --only hosting:leads,functions:leads || goto :error
+call npx --yes firebase-tools deploy --only hosting:leads,functions:leads --account %CUENTA% || goto :error
 echo.
 echo Listo: https://marielacardinale-leads.web.app
 pause
@@ -29,6 +36,6 @@ exit /b 0
 
 :error
 echo.
-echo ERROR: algo fallo. No se publico nada nuevo. Si pidio login, ejecuta: npx firebase-tools login
+echo ERROR: algo fallo. No se publico nada nuevo. Si pidio login, entra con la cuenta %CUENTA%.
 pause
 exit /b 1

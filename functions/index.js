@@ -324,6 +324,33 @@ exports.redactorPosts = feature("redes") && wrap(posts.AGENT, async (req, res, u
   res.json({ agent: posts.AGENT, semana: plan[0].semana, creados: creados.length, yaExistian: ya.size, fallos });
 }, { secrets: [OPENAI_API_KEY], timeoutSeconds: 180, memory: "512MiB" });
 
+// Recibe un post redactado por el agente Redes (carpeta de agentes) y lo deja como BORRADOR: no publica nada,
+// Mariela lo revisa y lo aprueba en el panel. Idempotente: el id sale del slug.
+exports.postsImport = feature("redes") && wrap("postsImport", async (req, res, user) => {
+  if (req.method !== "POST") return res.status(405).json({ agent: "postsImport", error: "Método no permitido." });
+  const r = posts.validarImportado(req.body);
+  if (!r.ok) return res.status(400).json({ agent: "postsImport", error: r.motivo });
+  const ref = postsRef(user.uid).doc(r.id);
+  if ((await ref.get()).exists) return res.json({ ok: true, yaExistia: true, id: r.id });
+  const p = r.post;
+  const base = r.id;
+  const png = await renderPlaca({ etiqueta: p.etiqueta, titulo: p.placa.titulo, subtitulo: p.placa.subtitulo });
+  const media = await saveMedia(user.uid, `${base}-placa.png`, png, "image/png");
+  const pin = p.pinterest ? await armarImagenPin(user.uid, base, p.etiqueta, p.placa) : null;
+  const now = Date.now();
+  await ref.set({
+    ...p,
+    pinterest: p.pinterest ? { ...p.pinterest, ...pin } : null,
+    redes: brand.redes,
+    media: { tipo: "placa", ...media },
+    estado: "borrador",
+    createdAt: now,
+    updatedAt: now,
+  });
+  logger.info("[postsImport] ok", { id: r.id, por: user.email });
+  res.json({ ok: true, id: r.id });
+}, { timeoutSeconds: 120, memory: "512MiB" });
+
 // Ver / editar / aprobar / borrar posts. No publica nada.
 exports.postsApi = feature("redes") && wrap("postsApi", async (req, res, user) => {
   const ref = postsRef(user.uid);
