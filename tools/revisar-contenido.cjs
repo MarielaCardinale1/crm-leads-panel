@@ -64,7 +64,7 @@ function procesar(carpeta) {
 
   const destino = path.join(salida, meta.panel, `${meta.slug}.json`);
   fs.mkdirSync(path.dirname(destino), { recursive: true });
-  fs.writeFileSync(destino, JSON.stringify(json, null, 2));
+  fs.writeFileSync(destino, JSON.stringify({ ...json, _carpeta: path.join(entrada, carpeta) }, null, 2)); // _carpeta: la usa subir-contenido; postsImport la ignora
   fs.writeFileSync(archivo, R.actualizarFrontmatter(texto, { estado: "listo" }));
   return { carpeta, estado: "lista", detalle: destino, medios: json.medios.map((x) => path.join(entrada, carpeta, x.archivo)) };
 }
@@ -74,5 +74,5 @@ for (const c of fs.readdirSync(entrada).filter((n) => fs.statSync(path.join(entr
   const r = procesar(c);
   console.log(`[${r.estado}] ${c}`);
   for (const d of [].concat(r.detalle || [])) console.log(`    ${d}`);
-  if (r.medios) console.log(`    subir a mano (postsMedia): ${r.medios.join(", ")}`);
+  if (r.medios) console.log(`    para subirla al panel: node tools/subir-contenido.cjs <panel> (medios: ${r.medios.length})`);
 }

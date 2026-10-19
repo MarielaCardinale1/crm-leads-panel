@@ -122,4 +122,13 @@ function actualizarFrontmatter(texto, cambios) {
   return texto.slice(0, m.index) + m[1] + fm + m[3] + texto.slice(m.index + m[0].length);
 }
 
-module.exports = { VETO_MS, CANALES, MAX_CARRUSEL, parsePieza, parseYoutube, revisarMedios, armarJson, estadoVeto, actualizarFrontmatter, aMs, aTexto };
+const MIME = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", mp4: "video/mp4", mov: "video/quicktime" };
+const mimeDe = (archivo) => MIME[String(archivo).split(".").pop().toLowerCase()] || null;
+
+/** Pasos de subida: primero el post (postsImport) y después cada medio, en el orden de la pieza. */
+function planDeSubida(json, base) {
+  const { _carpeta, ...cuerpo } = json;
+  return { importar: { url: `${base}/postsImport`, cuerpo }, carpeta: _carpeta, id: `redes-${json.slug}` };
+}
+
+module.exports = { mimeDe, planDeSubida, VETO_MS, CANALES, MAX_CARRUSEL, parsePieza, parseYoutube, revisarMedios, armarJson, estadoVeto, actualizarFrontmatter, aMs, aTexto };

@@ -243,6 +243,7 @@ const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; li
 
   const carruselRef = useRef<HTMLInputElement>(null);
   const items = post.media?.tipo === 'carrusel' ? post.media.items || [] : [];
+  const faltan = (post.mediosPendientes || []).map((m) => m.archivo).filter((a) => !post.mediosSubidos?.[a]);
   const onCarrusel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
@@ -294,6 +295,9 @@ const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; li
           <p className="text-[11px] text-[#666] dark:text-[#99897A]">
             {post.media?.tipo === 'placa' ? 'Placa automática' : post.media?.tipo === 'video' ? 'Tu video (Reel)' : post.media?.tipo === 'carrusel' ? `Carrusel de ${items.length} imágenes${post.redes?.includes('facebook') ? ' (en Facebook sale como un post con varias fotos)' : ''}` : 'Tu foto'}
           </p>
+          {faltan.length > 0 && (
+            <p className="text-[11px] font-semibold text-[#B45309]">Faltan {faltan.length} medio(s) por subir: {faltan.join(', ')}. No sale hasta que estén.</p>
+          )}
           {editable && (
             <>
               <input ref={fileRef} type="file" accept="image/jpeg,image/png,video/mp4,video/quicktime" className="hidden" onChange={onFile} />

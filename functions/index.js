@@ -22,7 +22,7 @@ const copy = require("./copy-rules");
 const posts = require("./posts-rules");
 const { brand, feature } = require("./brand");
 const { renderPlaca } = require("./placa");
-const { randomUUID } = require("node:crypto");
+const { randomUUID, createHash } = require("node:crypto");
 const { defineSecret } = require("firebase-functions/params");
 
 // Misma clave que usa Jefe IA (secreto del proyecto). Solo la usa copyComercial.
@@ -331,7 +331,8 @@ exports.postsImport = feature("redes") && wrap("postsImport", async (req, res, u
   const r = posts.validarImportado(req.body);
   if (!r.ok) return res.status(400).json({ agent: "postsImport", error: r.motivo });
   const ref = postsRef(user.uid).doc(r.id);
-  if ((await ref.get()).exists) return res.json({ ok: true, yaExistia: true, id: r.id });
+  const previo = await ref.get();
+  if (previo.exists) return res.json({ ok: true, yaExistia: true, id: r.id, faltan: publisher.mediosFaltantes(previo.data()) });
   const p = r.post;
   const base = r.id;
   const png = await renderPlaca({ etiqueta: p.etiqueta, titulo: p.placa.titulo, subtitulo: p.placa.subtitulo });
@@ -348,7 +349,7 @@ exports.postsImport = feature("redes") && wrap("postsImport", async (req, res, u
     updatedAt: now,
   });
   logger.info("[postsImport] ok", { id: r.id, por: user.email });
-  res.json({ ok: true, id: r.id });
+  res.json({ ok: true, id: r.id, faltan: (p.mediosPendientes || []).map((m) => m.archivo) });
 }, { timeoutSeconds: 120, memory: "512MiB" });
 
 // Ver / editar / aprobar / borrar posts. No publica nada.
@@ -440,6 +441,31 @@ exports.postsMedia = feature("redes") && wrap("postsMedia", async (req, res, use
   if (buf.length > MAX_MEDIA_BYTES) return res.status(413).json({ agent: "postsMedia", error: "Máximo 30 MB." });
   const doc = await postsRef(user.uid).doc(id).get();
   if (!doc.exists) return res.status(404).json({ agent: "postsMedia", error: "No encontré ese post." });
+  if (req.query.archivo) {
+    // Subida de un medio anunciado al importar (?archivo=nombre): se verifica tamaño y sha256 y se ubica solo.
+    const post = doc.data();
+    const anunciado = (post.mediosPendientes || []).find((m) => m.archivo === req.query.archivo);
+    if (!anunciado) return res.status(404).json({ agent: "postsMedia", error: "Ese archivo no figura entre los medios anunciados del post." });
+    const sha = createHash("sha256").update(buf).digest("hex");
+    if (buf.length !== anunciado.bytes || sha !== anunciado.sha256) {
+      return res.status(400).json({ agent: "postsMedia", error: `${anunciado.archivo}: no coincide con lo anunciado (tamaño o sha256). Volvé a copiarlo.` });
+    }
+    if ((anunciado.tipo === "video") !== (tipo === "video")) return res.status(400).json({ agent: "postsMedia", error: `${anunciado.archivo}: el tipo no coincide con lo anunciado.` });
+    const ext = { "image/jpeg": "jpg", "image/png": "png", "video/mp4": "mp4", "video/quicktime": "mov" }[type];
+    const saved = await saveMedia(user.uid, `${id}-${anunciado.archivo.replace(/[^\w.-]/g, "_")}-${Date.now()}.${ext}`, buf, type);
+    const subidos = { ...(post.mediosSubidos || {}), [anunciado.archivo]: saved };
+    const patch = { mediosSubidos: subidos, updatedAt: Date.now() };
+    if (post.canal === "contenido-carrusel") {
+      const items = post.mediosPendientes.filter((m) => subidos[m.archivo]).map((m) => subidos[m.archivo]);
+      patch.media = { tipo: "carrusel", url: items[0].url, path: items[0].path, items };
+    } else if (anunciado.tipo === "video") {
+      patch.media = { tipo: "video", ...saved };
+    } else {
+      patch.media = { portada: saved }; // portada del Reel: queda guardada junto al video
+    }
+    await postsRef(user.uid).doc(id).set(patch, { merge: true });
+    return res.json({ ok: true, archivo: anunciado.archivo, faltan: publisher.mediosFaltantes({ ...post, mediosSubidos: subidos }) });
+  }
   if (req.query.modo === "carrusel") {
     // Suma UNA imagen al carrusel (?modo=carrusel); con &reiniciar=1 empieza de cero. Se sube de a una, en orden.
     if (tipo !== "foto") return res.status(400).json({ agent: "postsMedia", error: "El carrusel lleva solo imágenes (JPG o PNG)." });

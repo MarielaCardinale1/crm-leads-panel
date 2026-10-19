@@ -78,6 +78,8 @@ export interface Post {
   estado: EstadoPost;
   publicacion?: { instagram?: Publicacion; linkedin?: Publicacion; facebook?: Publicacion; pinterest?: Publicacion & { manual?: boolean }; youtube?: Publicacion & { manual?: boolean }; youtubeApi?: Publicacion & { privado?: boolean; id?: string } };
   pinterest?: { titulo: string; descripcion: string; url?: string; path?: string } | null;
+  mediosPendientes?: { archivo: string; tipo: 'video' | 'imagen' }[];
+  mediosSubidos?: Record<string, { url: string; path: string }>;
 }
 
 export async function generateWeek(): Promise<{ semana: string; creados: number; yaExistian: number; fallos: string[] }> {

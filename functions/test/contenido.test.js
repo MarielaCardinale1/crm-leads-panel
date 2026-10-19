@@ -95,3 +95,44 @@ test("actualizar el frontmatter no toca los textos", () => {
   assert.match(nuevo, /^estado: en_veto$/m);
   assert.equal(nuevo.split("\n---\n")[1], PIEZA.split("\n---\n")[1]);
 });
+
+test("postsImport: valida los medios anunciados y los deja como pendientes", () => {
+  const posts = require("../posts-rules");
+  const { meta, secciones } = R.parsePieza(PIEZA);
+  const j = R.armarJson(meta, secciones);
+  const r = posts.validarImportado(j);
+  assert.equal(r.ok, true);
+  assert.equal(r.post.canal, "contenido-reel");
+  assert.deepEqual(r.post.mediosPendientes.map((m) => m.archivo), ["video.mp4", "portada.jpg"]);
+  assert.equal(posts.validarImportado({ ...j, medios: undefined, canal: undefined }).post.mediosPendientes, undefined, "sin medios sigue igual que antes");
+  const malo = (cambio) => posts.validarImportado({ ...j, ...cambio }).ok;
+  assert.equal(malo({ canal: "otro" }), false);
+  assert.equal(malo({ medios: [{ archivo: "../x.mp4", tipo: "video", bytes: 1, sha256: H }] }), false);
+  assert.equal(malo({ medios: [{ archivo: "a.mp4", tipo: "video", bytes: 31 * 1024 * 1024, sha256: H }] }), false);
+  assert.equal(malo({ medios: [{ archivo: "a.mp4", tipo: "video", bytes: 1, sha256: "x" }] }), false);
+  assert.equal(malo({ medios: [j.medios[0], j.medios[0]] }), false, "nombre repetido");
+  assert.equal(malo({ medios: [j.medios[1]] }), false, "un Reel necesita video");
+  const img = (n) => ({ archivo: `c${n}.jpg`, tipo: "imagen", bytes: 5, sha256: H });
+  assert.equal(malo({ canal: "contenido-carrusel", medios: [img(1), img(2)] }), true);
+  assert.equal(malo({ canal: "contenido-carrusel", medios: [img(1)] }), false);
+  assert.equal(malo({ canal: "contenido-carrusel", medios: Array.from({ length: 11 }, (_, i) => img(i)) }), false);
+});
+
+test("el Publicador no toca un post al que le faltan medios", () => {
+  const publisher = require("../publisher-rules");
+  const post = { estado: "aprobado", fechaPublicacion: "2026-10-26 10:00", redes: ["instagram"], mediosPendientes: [{ archivo: "a.jpg" }, { archivo: "b.jpg" }], mediosSubidos: { "a.jpg": { url: "u" } } };
+  assert.deepEqual(publisher.mediosFaltantes(post), ["b.jpg"]);
+  assert.equal(publisher.isDue(post, "2026-10-26 10:05"), false);
+  post.mediosSubidos["b.jpg"] = { url: "u2" };
+  assert.equal(publisher.isDue(post, "2026-10-26 10:05"), true);
+});
+
+test("subir: mime por extensión y plan de subida sin la carpeta local en el cuerpo", () => {
+  assert.equal(R.mimeDe("a.MP4"), "video/mp4");
+  assert.equal(R.mimeDe("a.jpg"), "image/jpeg");
+  assert.equal(R.mimeDe("a.gif"), null);
+  const p = R.planDeSubida({ slug: "x", _carpeta: "/c", canal: "contenido-reel" }, "https://f");
+  assert.equal(p.importar.url, "https://f/postsImport");
+  assert.equal(p.id, "redes-x");
+  assert.equal(p.importar.cuerpo._carpeta, undefined);
+});

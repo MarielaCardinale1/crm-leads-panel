@@ -35,9 +35,15 @@ function pendingRedes(post, activas = REDES) {
     .filter((r) => !pub[r]?.ok && (pub[r]?.intentos || 0) < MAX_INTENTOS);
 }
 
-/** ¿Hay que publicarlo ahora? Solo aprobados, con fecha cumplida y algo pendiente. */
+/** Medios anunciados al importar que todavía no se subieron (nombres de archivo). */
+function mediosFaltantes(post) {
+  const subidos = post.mediosSubidos || {};
+  return (post.mediosPendientes || []).map((m) => m.archivo).filter((a) => !subidos[a]);
+}
+
+/** ¿Hay que publicarlo ahora? Solo aprobados, completos, con fecha cumplida y algo pendiente. */
 function isDue(post, now, activas = REDES) {
-  return post.estado === "aprobado" && !!post.fechaPublicacion && post.fechaPublicacion <= now && pendingRedes(post, activas).length > 0;
+  return post.estado === "aprobado" && !mediosFaltantes(post).length && !!post.fechaPublicacion && post.fechaPublicacion <= now && pendingRedes(post, activas).length > 0;
 }
 
 /** Pasa a "publicado" cuando todas sus redes elegidas ya salieron. */
@@ -114,4 +120,4 @@ function motivoCarruselInvalido(media) {
   return n < 2 || n > MAX_CARRUSEL ? `El carrusel necesita de 2 a ${MAX_CARRUSEL} imágenes (tiene ${n}).` : "";
 }
 
-module.exports = { MAX_CARRUSEL, itemsDeImagen, motivoCarruselInvalido, AGENT, REDES, textoFacebook, textoLinkedin, textoYoutube, diasLinkedin, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };
+module.exports = { mediosFaltantes, MAX_CARRUSEL, itemsDeImagen, motivoCarruselInvalido, AGENT, REDES, textoFacebook, textoLinkedin, textoYoutube, diasLinkedin, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };
