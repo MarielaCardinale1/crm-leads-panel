@@ -166,4 +166,44 @@ function parsePin(raw) {
 
 const ESTADOS_POST = ["borrador", "aprobado", "publicado", "descartado"];
 
-module.exports = { fechaValida, AGENT, OFERTAS, ANGULOS, ESTADOS_POST, weeklyPlan, nextMonday, isoWeek, buildPostPrompt, parsePost, buildPinPrompt, parsePin, limpiarPin };
+/**
+ * Un post que viene del agente Redes (carpeta de agentes). Se valida con los mismos límites reales de cada red
+ * que usa el redactor automático. Devuelve { ok:true, post } listo para guardar como borrador, o { ok:false, motivo }.
+ * El id sale del slug, así importar dos veces lo mismo no duplica nada.
+ */
+function validarImportado(b) {
+  const x = b || {};
+  const slug = String(x.slug || "");
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 100) return { ok: false, motivo: "Slug no válido." };
+  const url = String(x.url || "").trim();
+  if (!/^https:\/\/\S+$/.test(url) || url.length > 300) return { ok: false, motivo: "La URL tiene que ser https y sin espacios." };
+  if (!fechaValida(x.fechaPublicacion)) return { ok: false, motivo: "Fecha u hora no válida (AAAA-MM-DD HH:MM)." };
+  const etiqueta = cut(x.etiqueta, 40);
+  const titulo = cut(x.placa?.titulo, 70);
+  const instagram = cut(x.instagram, 2200);
+  const facebook = cut(x.facebook, 2000);
+  if (!etiqueta || !titulo) return { ok: false, motivo: "Falta la etiqueta o el título de la placa." };
+  if (!instagram) return { ok: false, motivo: "Falta el texto de Instagram." };
+  if (CON_FACEBOOK && !facebook) return { ok: false, motivo: "Falta el texto de Facebook." };
+  const fecha = String(x.fechaPublicacion).slice(0, 10);
+  return {
+    ok: true,
+    id: `redes-${slug}`,
+    post: {
+      semana: `${fecha.slice(0, 4)}-S${pad(isoWeek(fecha))}`,
+      oferta: `redes:${slug}`,
+      etiqueta,
+      url,
+      angulo: cut(x.angulo, 200),
+      fechaPublicacion: String(x.fechaPublicacion),
+      placa: { titulo, subtitulo: cut(x.placa?.subtitulo, 100) },
+      instagram,
+      linkedin: "",
+      facebook,
+      pinterest: limpiarPin(x.pinterest),
+      origen: "redes",
+    },
+  };
+}
+
+module.exports = { validarImportado, fechaValida, AGENT, OFERTAS, ANGULOS, ESTADOS_POST, weeklyPlan, nextMonday, isoWeek, buildPostPrompt, parsePost, buildPinPrompt, parsePin, limpiarPin };
