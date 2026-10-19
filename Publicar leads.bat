@@ -30,7 +30,9 @@ echo.
 echo Publicando panel y funciones (codebase leads)...
 call npx --yes firebase-tools deploy --only hosting:leads,functions:leads --account %CUENTA% || goto :error
 echo.
-echo Listo: https://marielacardinale-leads.web.app
+rem La direccion sale del perfil del proyecto (functions\project.json), no de este archivo
+for /f "usebackq delims=" %%u in (`node -p "require('./functions/brand').brand.panelUrl"`) do set PANEL=%%u
+echo Listo: %PANEL%
 pause
 exit /b 0
 
