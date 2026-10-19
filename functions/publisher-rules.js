@@ -15,6 +15,7 @@ const REDES = ["instagram", "linkedin", "facebook"]; // LinkedIn solo si está c
 const MAX_INTENTOS = 3;
 const IG_RATIO_MIN = 4 / 5; // Instagram acepta fotos entre 4:5 …
 const IG_RATIO_MAX = 1.91; // … y 1.91:1
+const MAX_CARRUSEL = 10; // tope de Instagram por carrusel
 
 /** "YYYY-MM-DD HH:MM" en la zona dada. */
 function nowKey(date = new Date(), timeZone = brand.horario.zona) {
@@ -34,9 +35,15 @@ function pendingRedes(post, activas = REDES) {
     .filter((r) => !pub[r]?.ok && (pub[r]?.intentos || 0) < MAX_INTENTOS);
 }
 
-/** ¿Hay que publicarlo ahora? Solo aprobados, con fecha cumplida y algo pendiente. */
+/** Medios anunciados al importar que todavía no se subieron (nombres de archivo). */
+function mediosFaltantes(post) {
+  const subidos = post.mediosSubidos || {};
+  return (post.mediosPendientes || []).map((m) => m.archivo).filter((a) => !subidos[a]);
+}
+
+/** ¿Hay que publicarlo ahora? Solo aprobados, completos, con fecha cumplida y algo pendiente. */
 function isDue(post, now, activas = REDES) {
-  return post.estado === "aprobado" && !!post.fechaPublicacion && post.fechaPublicacion <= now && pendingRedes(post, activas).length > 0;
+  return post.estado === "aprobado" && !mediosFaltantes(post).length && !!post.fechaPublicacion && post.fechaPublicacion <= now && pendingRedes(post, activas).length > 0;
 }
 
 /** Pasa a "publicado" cuando todas sus redes elegidas ya salieron. */
@@ -101,4 +108,16 @@ function necesitaBordes(width, height) {
   return r < IG_RATIO_MIN || r > IG_RATIO_MAX;
 }
 
-module.exports = { AGENT, REDES, textoFacebook, textoLinkedin, textoYoutube, diasLinkedin, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };
+/** Medio del post como lista de imágenes: carrusel = sus items; foto o placa = una sola. Video = []. */
+function itemsDeImagen(media) {
+  if (media?.tipo === "carrusel") return media.items || [];
+  return media?.tipo === "video" || !media?.url ? [] : [media];
+}
+
+/** Un carrusel sale con 2 a 10 imágenes (sin video). Devuelve el motivo si no se puede, o "". */
+function motivoCarruselInvalido(media) {
+  const n = (media?.items || []).length;
+  return n < 2 || n > MAX_CARRUSEL ? `El carrusel necesita de 2 a ${MAX_CARRUSEL} imágenes (tiene ${n}).` : "";
+}
+
+module.exports = { mediosFaltantes, MAX_CARRUSEL, itemsDeImagen, motivoCarruselInvalido, AGENT, REDES, textoFacebook, textoLinkedin, textoYoutube, diasLinkedin, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };

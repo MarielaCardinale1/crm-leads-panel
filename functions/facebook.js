@@ -35,6 +35,19 @@ async function publicarVideo(pageId, token, { url, mensaje }) {
   return { id: d.id, url: `https://www.facebook.com/${d.id}` };
 }
 
+/**
+ * Facebook no tiene "carrusel" para Páginas: se publica como un solo post con varias fotos.
+ * Cada foto se sube sin publicar y después se juntan en un post del feed (en el mismo orden).
+ */
+async function publicarAlbum(pageId, token, { urls, mensaje }) {
+  const ids = [];
+  for (const url of urls) ids.push((await postear(`${pageId}/photos`, { url, published: "false", access_token: token })).id);
+  const params = { message: mensaje, access_token: token };
+  ids.forEach((id, i) => { params[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id }); });
+  const d = await postear(`${pageId}/feed`, params);
+  return { id: d.id, url: `https://www.facebook.com/${d.id}` };
+}
+
 const RUPLOAD = "https://rupload.facebook.com/video-upload/v21.0";
 
 /**
@@ -60,4 +73,4 @@ async function publicarReel(pageId, token, { url, mensaje }) {
   return { id: inicio.video_id, url: `https://www.facebook.com/reel/${inicio.video_id}` };
 }
 
-module.exports = { publicarFoto, publicarVideo, publicarReel, mensajeDeError };
+module.exports = { publicarAlbum, publicarFoto, publicarVideo, publicarReel, mensajeDeError };

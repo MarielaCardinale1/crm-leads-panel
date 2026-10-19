@@ -164,6 +164,35 @@ function parsePin(raw) {
   }
 }
 
+const CANALES_MEDIOS = ["contenido-reel", "contenido-carrusel"];
+const MAX_MEDIO_BYTES = 30 * 1024 * 1024; // mismo tope que postsMedia
+const MAX_CARRUSEL = 10;
+
+/**
+ * Medios que acompañan a un post importado: se anotan como pendientes y se suben después, uno por uno (postsMedia),
+ * verificando tamaño y sha256 de cada archivo. Reel = 1 video (+ portada opcional); carrusel = 2 a 10 imágenes, en orden.
+ */
+function validarMedios(canal, medios) {
+  if (!CANALES_MEDIOS.includes(canal)) return { ok: false, motivo: "Canal no reconocido (contenido-reel o contenido-carrusel)." };
+  if (!Array.isArray(medios) || !medios.length || medios.length > MAX_CARRUSEL + 1) return { ok: false, motivo: "Lista de medios no válida." };
+  const vistos = new Set();
+  const limpios = [];
+  for (const m of medios) {
+    const archivo = String(m?.archivo || "");
+    if (!/^[\w][\w.-]{0,79}$/.test(archivo) || archivo.includes("..") || vistos.has(archivo)) return { ok: false, motivo: `Nombre de archivo no válido o repetido: ${archivo.slice(0, 40)}.` };
+    if (m.tipo !== "video" && m.tipo !== "imagen") return { ok: false, motivo: `${archivo}: el tipo es video o imagen.` };
+    if (!Number.isInteger(m.bytes) || m.bytes <= 0 || m.bytes > MAX_MEDIO_BYTES) return { ok: false, motivo: `${archivo}: tamaño no válido (máx. 30 MB).` };
+    if (!/^[0-9a-f]{64}$/i.test(String(m.sha256 || ""))) return { ok: false, motivo: `${archivo}: sha256 no válido.` };
+    vistos.add(archivo);
+    limpios.push({ archivo, tipo: m.tipo, bytes: m.bytes, sha256: String(m.sha256).toLowerCase() });
+  }
+  const videos = limpios.filter((m) => m.tipo === "video").length;
+  const imagenes = limpios.length - videos;
+  if (canal === "contenido-reel" && (videos !== 1 || imagenes > 1)) return { ok: false, motivo: "Un Reel lleva un video y, si querés, una portada." };
+  if (canal === "contenido-carrusel" && (videos || imagenes < 2 || imagenes > MAX_CARRUSEL)) return { ok: false, motivo: `Un carrusel lleva de 2 a ${MAX_CARRUSEL} imágenes, sin video.` };
+  return { ok: true, medios: limpios };
+}
+
 const ESTADOS_POST = ["borrador", "aprobado", "publicado", "descartado"];
 
 /**
@@ -185,6 +214,12 @@ function validarImportado(b) {
   if (!etiqueta || !titulo) return { ok: false, motivo: "Falta la etiqueta o el título de la placa." };
   if (!instagram) return { ok: false, motivo: "Falta el texto de Instagram." };
   if (CON_FACEBOOK && !facebook) return { ok: false, motivo: "Falta el texto de Facebook." };
+  let medios = null;
+  if (x.medios !== undefined) {
+    const m = validarMedios(x.canal, x.medios);
+    if (!m.ok) return m;
+    medios = m.medios;
+  }
   const fecha = String(x.fechaPublicacion).slice(0, 10);
   return {
     ok: true,
@@ -202,8 +237,9 @@ function validarImportado(b) {
       facebook,
       pinterest: limpiarPin(x.pinterest),
       origen: "redes",
+      ...(medios ? { canal: x.canal, mediosPendientes: medios } : {}),
     },
   };
 }
 
-module.exports = { validarImportado, fechaValida, AGENT, OFERTAS, ANGULOS, ESTADOS_POST, weeklyPlan, nextMonday, isoWeek, buildPostPrompt, parsePost, buildPinPrompt, parsePin, limpiarPin };
+module.exports = { validarMedios, validarImportado, fechaValida, AGENT, OFERTAS, ANGULOS, ESTADOS_POST, weeklyPlan, nextMonday, isoWeek, buildPostPrompt, parsePost, buildPinPrompt, parsePin, limpiarPin };
