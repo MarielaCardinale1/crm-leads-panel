@@ -13,3 +13,5 @@ functions/.env*
 .firebaserc
 
 functions/project.json
+entrada/
+salida/
