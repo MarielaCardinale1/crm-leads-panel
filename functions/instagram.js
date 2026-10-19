@@ -20,6 +20,16 @@ function crearContenedor(igId, token, { tipo, url, caption }) {
   return api("POST", `${igId}/media`, token, params).then((d) => d.id);
 }
 
+/** Una imagen suelta de un carrusel (todavía no se publica sola). */
+function crearItemCarrusel(igId, token, url) {
+  return api("POST", `${igId}/media`, token, { image_url: url, is_carousel_item: "true" }).then((d) => d.id);
+}
+
+/** El carrusel en sí: junta los items (2 a 10, en orden) con el texto. */
+function crearContenedorCarrusel(igId, token, childIds, caption) {
+  return api("POST", `${igId}/media`, token, { media_type: "CAROUSEL", children: childIds.join(","), caption }).then((d) => d.id);
+}
+
 /** FINISHED | IN_PROGRESS | ERROR | EXPIRED | PUBLISHED */
 function estadoContenedor(containerId, token) {
   return api("GET", containerId, token, { fields: "status_code,status" });
@@ -36,4 +46,4 @@ async function publicarContenedor(igId, token, containerId) {
   return { id, permalink };
 }
 
-module.exports = { crearContenedor, estadoContenedor, publicarContenedor };
+module.exports = { crearItemCarrusel, crearContenedorCarrusel, crearContenedor, estadoContenedor, publicarContenedor };

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Sparkles, Upload, Check, X, Instagram, Linkedin, Facebook, Copy, RotateCcw, Loader2, Send, ExternalLink, AlertTriangle, Pin, Download } from 'lucide-react';
-import { Post, EstadoPost, fetchPosts, generateWeek, updatePost, uploadPostMedia, publishNow, makePin, linkedinStatus, linkedinConnect, youtubeStatus, youtubeConnect, youtubeUpload, Publicacion, MAX_MEDIA_MB } from '../services/leadService';
+import { Post, EstadoPost, fetchPosts, generateWeek, updatePost, uploadPostMedia, MAX_CARRUSEL, publishNow, makePin, linkedinStatus, linkedinConnect, youtubeStatus, youtubeConnect, youtubeUpload, Publicacion, MAX_MEDIA_MB } from '../services/leadService';
 import { hasFeature } from '../firebase-config';
 
 interface Props {
@@ -241,6 +241,21 @@ const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; li
     if (f) run('media', () => uploadPostMedia(post.id, f), f.type.startsWith('video') ? 'Video subido (sale como Reel)' : 'Foto subida');
   };
 
+  const carruselRef = useRef<HTMLInputElement>(null);
+  const items = post.media?.tipo === 'carrusel' ? post.media.items || [] : [];
+  const onCarrusel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length + items.length > MAX_CARRUSEL && !window.confirm(`Con esas imágenes pasás el máximo de ${MAX_CARRUSEL}. ¿Empezar un carrusel nuevo con las primeras ${MAX_CARRUSEL}?`)) return;
+    const reiniciar = files.length + items.length > MAX_CARRUSEL;
+    // De a una y en el orden en que las elegiste: ese es el orden de las diapositivas.
+    run('media', async () => {
+      let r;
+      for (const [i, f] of files.slice(0, MAX_CARRUSEL).entries()) r = await uploadPostMedia(post.id, f, { reiniciar: reiniciar && i === 0 });
+      return r!;
+    }, 'Carrusel actualizado');
+  };
+
   const fechaCambiada = fecha !== post.fechaPublicacion.replace(' ', 'T');
   const guardarFecha = () => {
     const nueva = fecha.replace('T', ' ');
@@ -269,11 +284,15 @@ const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; li
         <div className="space-y-2">
           {post.media?.tipo === 'video' ? (
             <video src={post.media.url} controls className="w-full rounded-xl bg-black aspect-[4/5] object-cover" />
+          ) : items.length ? (
+            <div className="grid grid-cols-3 gap-1">
+              {items.map((x, i) => <img key={x.path} src={x.url} alt={`Diapositiva ${i + 1}`} className="w-full rounded-lg border border-[#F5C9A8]/60 aspect-[4/5] object-cover" />)}
+            </div>
           ) : (
             <img src={post.media?.url} alt={post.placa?.titulo} className="w-full rounded-xl border border-[#F5C9A8]/60 aspect-[4/5] object-cover" />
           )}
           <p className="text-[11px] text-[#666] dark:text-[#99897A]">
-            {post.media?.tipo === 'placa' ? 'Placa automática' : post.media?.tipo === 'video' ? 'Tu video (Reel)' : 'Tu foto'}
+            {post.media?.tipo === 'placa' ? 'Placa automática' : post.media?.tipo === 'video' ? 'Tu video (Reel)' : post.media?.tipo === 'carrusel' ? `Carrusel de ${items.length} imágenes${post.redes?.includes('facebook') ? ' (en Facebook sale como un post con varias fotos)' : ''}` : 'Tu foto'}
           </p>
           {editable && (
             <>
@@ -284,6 +303,11 @@ const PostCard: React.FC<{ post: Post; zona: string; facebookActivo: boolean; li
                 Subir foto/video
               </button>
               <p className="text-[11px] text-[#666] dark:text-[#99897A]">JPG, PNG, MP4 o MOV · máx. {MAX_MEDIA_MB} MB</p>
+              <input ref={carruselRef} type="file" multiple accept="image/jpeg,image/png" className="hidden" onChange={onCarrusel} />
+              <button disabled={!!busy} onClick={() => carruselRef.current?.click()}
+                className={`${btn} w-full justify-center border border-[#F5C9A8] dark:border-[#3D2E22] text-[#1a1a1a] dark:text-[#F5EBE1] hover:bg-[#FFF8F0] dark:hover:bg-[#231E19]`}>
+                <Upload className="w-4 h-4" /> {items.length ? 'Agregar al carrusel' : 'Armar carrusel (2 a 10 imágenes)'}
+              </button>
             </>
           )}
         </div>

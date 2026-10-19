@@ -440,6 +440,18 @@ exports.postsMedia = feature("redes") && wrap("postsMedia", async (req, res, use
   if (buf.length > MAX_MEDIA_BYTES) return res.status(413).json({ agent: "postsMedia", error: "Máximo 30 MB." });
   const doc = await postsRef(user.uid).doc(id).get();
   if (!doc.exists) return res.status(404).json({ agent: "postsMedia", error: "No encontré ese post." });
+  if (req.query.modo === "carrusel") {
+    // Suma UNA imagen al carrusel (?modo=carrusel); con &reiniciar=1 empieza de cero. Se sube de a una, en orden.
+    if (tipo !== "foto") return res.status(400).json({ agent: "postsMedia", error: "El carrusel lleva solo imágenes (JPG o PNG)." });
+    const previo = doc.data().media?.tipo === "carrusel" && req.query.reiniciar !== "1" ? doc.data().media.items || [] : [];
+    if (previo.length >= publisher.MAX_CARRUSEL) return res.status(400).json({ agent: "postsMedia", error: `Máximo ${publisher.MAX_CARRUSEL} imágenes por carrusel.` });
+    const ext = type === "image/png" ? "png" : "jpg";
+    const item = await saveMedia(user.uid, `${id}-carrusel-${previo.length + 1}-${Date.now()}.${ext}`, buf, type);
+    const items = [...previo, item];
+    const media = { tipo: "carrusel", url: items[0].url, path: items[0].path, items };
+    await postsRef(user.uid).doc(id).set({ media, updatedAt: Date.now() }, { merge: true });
+    return res.json({ ok: true, media });
+  }
   const ext = { "image/jpeg": "jpg", "image/png": "png", "video/mp4": "mp4", "video/quicktime": "mov" }[type];
   const media = await saveMedia(user.uid, `${id}-propio-${Date.now()}.${ext}`, buf, type);
   await postsRef(user.uid).doc(id).set({ media: { tipo, ...media }, updatedAt: Date.now() }, { merge: true });
@@ -517,6 +529,32 @@ async function urlParaInstagram(uid, postId, media) {
   return saved.url;
 }
 
+/** Items de un carrusel listos para Instagram: todos JPG 4:5 (Instagram recorta todo al formato del primero). */
+async function urlsCarruselInstagram(uid, postId, media) {
+  const sharp = require("sharp");
+  const items = media.items.map((x) => ({ ...x }));
+  for (const [i, it] of items.entries()) {
+    if (it.jpgUrl) continue;
+    const [buf] = await admin.storage().bucket().file(it.path).download();
+    const jpg = await sharp(buf).rotate().resize(1080, 1350, { fit: "contain", background: "#FFF8F0" }).flatten({ background: "#FFF8F0" }).jpeg({ quality: 90 }).toBuffer();
+    it.jpgUrl = (await saveMedia(uid, `${postId}-ig-c${i + 1}-${Date.now()}.jpg`, jpg, "image/jpeg")).url;
+  }
+  await postsRef(uid).doc(postId).set({ media: { items } }, { merge: true });
+  return items.map((x) => x.jpgUrl);
+}
+
+/** Espera a que Instagram termine de procesar un contenedor. Lanza si falla o se pasa del tiempo. */
+async function esperarContenedor(containerId, token, ms) {
+  const limite = Date.now() + ms;
+  for (;;) {
+    const { status_code: code, status } = await ig.estadoContenedor(containerId, token);
+    if (code === "FINISHED") return;
+    if (code === "ERROR" || code === "EXPIRED") throw Object.assign(new Error(`Instagram no aceptó el archivo (${status || code}).`), { reset: true });
+    if (Date.now() > limite) throw Object.assign(new Error("Instagram sigue procesando las imágenes; se reintenta en 15 minutos."), { reset: true });
+    await esperar(3000);
+  }
+}
+
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Publica UN post en Instagram. Devuelve el nuevo estado de publicacion.instagram. */
@@ -526,8 +564,21 @@ async function publicarEnInstagram(uid, postRef, post, token) {
   try {
     let containerId = prev.containerId;
     if (!containerId) {
-      const url = await urlParaInstagram(uid, postRef.id, post.media);
-      containerId = await ig.crearContenedor(IG_USER_ID, token, { tipo: post.media.tipo, url, caption: publisher.captionInstagram(post.instagram) });
+      const caption = publisher.captionInstagram(post.instagram);
+      if (post.media.tipo === "carrusel") {
+        const motivo = publisher.motivoCarruselInvalido(post.media);
+        if (motivo) throw new Error(motivo);
+        const hijos = [];
+        for (const url of await urlsCarruselInstagram(uid, postRef.id, post.media)) {
+          const hijo = await ig.crearItemCarrusel(IG_USER_ID, token, url);
+          await esperarContenedor(hijo, token, 45000);
+          hijos.push(hijo);
+        }
+        containerId = await ig.crearContenedorCarrusel(IG_USER_ID, token, hijos, caption);
+      } else {
+        const url = await urlParaInstagram(uid, postRef.id, post.media);
+        containerId = await ig.crearContenedor(IG_USER_ID, token, { tipo: post.media.tipo, url, caption });
+      }
       estado.containerId = containerId;
       await postRef.set({ publicacion: { instagram: estado } }, { merge: true });
     }
@@ -554,6 +605,12 @@ async function publicarEnFacebook(post, token) {
   const intentos = (prev.intentos || 0) + 1;
   try {
     const datos = { url: post.media.url, mensaje: publisher.textoFacebook(post) };
+    if (post.media.tipo === "carrusel") {
+      const motivo = publisher.motivoCarruselInvalido(post.media);
+      if (motivo) throw new Error(motivo);
+      const r = await fb.publicarAlbum(FB_PAGE_ID, token, { urls: post.media.items.map((x) => x.url), mensaje: datos.mensaje });
+      return { ok: true, id: r.id, url: r.url, at: Date.now(), intentos };
+    }
     const r = post.media.tipo === "video" ? await fb.publicarReel(FB_PAGE_ID, token, datos) : await fb.publicarFoto(FB_PAGE_ID, token, datos);
     return { ok: true, id: r.id, url: r.url, at: Date.now(), intentos };
   } catch (error) {

@@ -74,7 +74,7 @@ export interface Post {
   linkedin: string;
   facebook?: string;
   redes: ('instagram' | 'linkedin' | 'facebook')[];
-  media: { tipo: 'placa' | 'foto' | 'video'; url: string; path: string };
+  media: { tipo: 'placa' | 'foto' | 'video' | 'carrusel'; url: string; path: string; items?: { url: string; path: string }[] };
   estado: EstadoPost;
   publicacion?: { instagram?: Publicacion; linkedin?: Publicacion; facebook?: Publicacion; pinterest?: Publicacion & { manual?: boolean }; youtube?: Publicacion & { manual?: boolean }; youtubeApi?: Publicacion & { privado?: boolean; id?: string } };
   pinterest?: { titulo: string; descripcion: string; url?: string; path?: string } | null;
@@ -99,11 +99,15 @@ export async function deletePost(id: string): Promise<{ ok: boolean }> {
 export const MEDIA_TYPES = ['image/jpeg', 'image/png', 'video/mp4', 'video/quicktime'];
 export const MAX_MEDIA_MB = 30;
 
-/** Sube tu foto o video para reemplazar la placa del post. */
-export async function uploadPostMedia(id: string, file: File): Promise<{ ok: boolean; media: Post['media'] }> {
+export const MAX_CARRUSEL = 10;
+
+/** Sube tu foto o video para reemplazar la placa del post. Con `carrusel`, suma una imagen al carrusel (máx. 10; `reiniciar` empieza de cero). */
+export async function uploadPostMedia(id: string, file: File, carrusel?: { reiniciar?: boolean }): Promise<{ ok: boolean; media: Post['media'] }> {
   if (!MEDIA_TYPES.includes(file.type)) throw new Error('Usá JPG, PNG, MP4 o MOV.');
+  if (carrusel && !file.type.startsWith('image/')) throw new Error('El carrusel lleva solo imágenes (JPG o PNG).');
   if (file.size > MAX_MEDIA_MB * 1024 * 1024) throw new Error(`Máximo ${MAX_MEDIA_MB} MB.`);
-  return call('postsMedia', { method: 'POST', body: file, headers: { 'Content-Type': file.type } }, `?id=${encodeURIComponent(id)}`);
+  const extra = carrusel ? `&modo=carrusel${carrusel.reiniciar ? '&reiniciar=1' : ''}` : '';
+  return call('postsMedia', { method: 'POST', body: file, headers: { 'Content-Type': file.type } }, `?id=${encodeURIComponent(id)}${extra}`);
 }
 
 /** Microagente Publicador: publica YA en Instagram un post aprobado. */

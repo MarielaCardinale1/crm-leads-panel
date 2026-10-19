@@ -15,6 +15,7 @@ const REDES = ["instagram", "linkedin", "facebook"]; // LinkedIn solo si está c
 const MAX_INTENTOS = 3;
 const IG_RATIO_MIN = 4 / 5; // Instagram acepta fotos entre 4:5 …
 const IG_RATIO_MAX = 1.91; // … y 1.91:1
+const MAX_CARRUSEL = 10; // tope de Instagram por carrusel
 
 /** "YYYY-MM-DD HH:MM" en la zona dada. */
 function nowKey(date = new Date(), timeZone = brand.horario.zona) {
@@ -101,4 +102,16 @@ function necesitaBordes(width, height) {
   return r < IG_RATIO_MIN || r > IG_RATIO_MAX;
 }
 
-module.exports = { AGENT, REDES, textoFacebook, textoLinkedin, textoYoutube, diasLinkedin, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };
+/** Medio del post como lista de imágenes: carrusel = sus items; foto o placa = una sola. Video = []. */
+function itemsDeImagen(media) {
+  if (media?.tipo === "carrusel") return media.items || [];
+  return media?.tipo === "video" || !media?.url ? [] : [media];
+}
+
+/** Un carrusel sale con 2 a 10 imágenes (sin video). Devuelve el motivo si no se puede, o "". */
+function motivoCarruselInvalido(media) {
+  const n = (media?.items || []).length;
+  return n < 2 || n > MAX_CARRUSEL ? `El carrusel necesita de 2 a ${MAX_CARRUSEL} imágenes (tiene ${n}).` : "";
+}
+
+module.exports = { MAX_CARRUSEL, itemsDeImagen, motivoCarruselInvalido, AGENT, REDES, textoFacebook, textoLinkedin, textoYoutube, diasLinkedin, MAX_INTENTOS, nowKey, pendingRedes, isDue, estadoTras, captionInstagram, necesitaBordes };
